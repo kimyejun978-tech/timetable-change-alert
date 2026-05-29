@@ -1,0 +1,87 @@
+/* 전체 페이지에 공통으로 적용되는 CSS입니다. */
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f7f8fa;
+  color: #191f28;
+}
+
+header {
+  background-color: white;
+  border-bottom: 1px solid #e5e8eb;
+  padding: 20px 40px;
+}
+
+header h1 {
+  margin: 0 0 12px;
+}
+
+nav a {
+  display: inline-block;
+  margin-right: 12px;
+  padding: 8px 12px;
+  color: #4e5968;
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+nav a.active {
+  color: white;
+  background-color: #3182f6;
+}
+
+main {
+  width: 1000px;
+  margin: 30px auto;
+}
+
+section {
+  margin-bottom: 24px;
+  padding: 24px;
+  background-color: white;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+}
+
+section h2 {
+  margin-top: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e8eb;
+  text-align: left;
+}
+
+button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background-color: #3182f6;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+input,
+select {
+  margin: 6px 0 12px;
+  padding: 8px;
+}
+
+label {
+  display: block;
+}
+
+footer {
+  padding: 20px 40px;
+  color: #4e5968;
+  text-align: center;
+}

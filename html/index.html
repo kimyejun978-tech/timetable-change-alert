@@ -1,12 +1,75 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>시간표 변경 알리미
-    </title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>시간표 변경 알리미</title>
+  <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
-    
+  <header>
+    <h1>시간표 변경 알리미</h1>
+
+    <nav>
+      <a href="index.html" class="active">홈</a>
+      <a href="basic.html">기본 시간표</a>
+      <a href="settings.html">설정</a>
+      <a href="result.html">비교 결과</a>
+    </nav>
+  </header>
+
+  <main>
+    <section>
+      <h2>오늘 시간표 변경 요약</h2>
+      <p>오늘 시간표 변경 내용을 한눈에 확인하는 홈 화면입니다.</p>
+
+      <!-- 여기에 오늘 날짜, 학교/반, 변경된 수업 개수를 넣기 -->
+    </section>
+
+    <section>
+      <h2>학교/반 정보</h2>
+
+      <!-- 예시: 새솔고등학교 1학년 4반 -->
+    </section>
+
+    <section>
+      <h2>교시별 시간표 비교</h2>
+
+      <table>
+        <tr>
+          <th>교시</th>
+          <th>기본 시간표</th>
+          <th>오늘 시간표</th>
+          <th>상태</th>
+        </tr>
+        <tr>
+          <td>1교시</td>
+          <td>국어</td>
+          <td>국어</td>
+          <td>동일</td>
+        </tr>
+        <tr>
+          <td>3교시</td>
+          <td>체육</td>
+          <td>자습</td>
+          <td>변경됨</td>
+        </tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>변경된 수업</h2>
+
+      <ul>
+        <li>3교시 체육 → 자습</li>
+        <li>5교시 수학 → 영어</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>기본 시간표와 오늘 시간표를 비교해서 바뀐 수업만 알려주는 웹사이트입니다.</p>
+  </footer>
 </body>
 </html>
+
