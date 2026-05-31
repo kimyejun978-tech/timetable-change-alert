@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>시간표 변경 알리미</title>
+  <script src="js\data.js" defer></script>
   <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
@@ -19,9 +20,6 @@
   </header>
 
   <main>
-    <section>
-      <h2>오늘 시간표 변경 요약</h2>
-      <p>오늘 시간표 변경 내용을 한눈에 확인하는 홈 화면입니다.</p>
 
       <!-- 여기에 오늘 날짜, 학교/반, 변경된 수업 개수를 넣기 -->
     </section>
@@ -42,18 +40,7 @@
           <th>오늘 시간표</th>
           <th>상태</th>
         </tr>
-        <tr>
-          <td>1교시</td>
-          <td>국어</td>
-          <td>국어</td>
-          <td>동일</td>
-        </tr>
-        <tr>
-          <td>3교시</td>
-          <td>체육</td>
-          <td>자습</td>
-          <td>변경됨</td>
-        </tr>
+        <tbody id="schedule_malloc"></tbody>
       </table>
     </section>
 
