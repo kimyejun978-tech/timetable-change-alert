@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>시간표 변경 알리미</title>
-  <script src="js\data.js" defer></script>
+  <script src="../js/data.js" defer></script>
   <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
@@ -34,12 +34,13 @@
       <h2>교시별 시간표 비교</h2>
 
       <table>
-        <tr>
-          <th>교시</th>
-          <th>기본 시간표</th>
-          <th>오늘 시간표</th>
-          <th>상태</th>
-        </tr>
+        <thead>
+          <tr>
+            <th>교시</th>
+            <th>기본 시간표</th>
+            <th>오늘 시간표</th>
+         </tr>
+        </thead>
         <tbody id="schedule_malloc"></tbody>
       </table>
     </section>
