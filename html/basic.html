@@ -4,10 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>기본 시간표 - 시간표 변경 알리미</title>
+
+  <script src="../js/data.js" defer></script>
   <link rel="stylesheet" href="../css/style.css">
 </head>
+
 <body>
-  <header> 
+  <header>
     <h1>시간표 변경 알리미</h1>
 
     <nav>
@@ -21,24 +24,25 @@
   <main>
     <section>
       <h2>요일 선택</h2>
-      <button>월요일</button>
-      <button>화요일</button>
-      <button>수요일</button>
-      <button>목요일</button>
-      <button>금요일</button>
+
+      <button type="button" class="day-btn mon">월요일</button>
+      <button type="button" class="day-btn tues">화요일</button>
+      <button type="button" class="day-btn wednes">수요일</button>
+      <button type="button" class="day-btn thurs">목요일</button>
+      <button type="button" class="day-btn fri active">금요일</button>
     </section>
 
-    <section>
+    <section id="scheduleArea">
       <h2>금요일 기본 시간표</h2>
 
       <form>
-        <label>1교시 <input type="text" value="국어"></label>
-        <label>2교시 <input type="text" value="과학"></label>
-        <label>3교시 <input type="text" value="체육"></label>
-        <label>4교시 <input type="text" value="역사"></label>
-        <label>5교시 <input type="text" value="수학"></label>
-        <label>6교시 <input type="text" value="미술"></label>
-        <label>7교시 <input type="text" value="동아리"></label>
+        <label>1교시 <input type="text" placeholder="1교시 과목 입력" value="국어"></label>
+        <label>2교시 <input type="text" placeholder="2교시 과목 입력" value="과학"></label>
+        <label>3교시 <input type="text" placeholder="3교시 과목 입력" value="체육"></label>
+        <label>4교시 <input type="text" placeholder="4교시 과목 입력" value="역사"></label>
+        <label>5교시 <input type="text" placeholder="5교시 과목 입력" value="수학"></label>
+        <label>6교시 <input type="text" placeholder="6교시 과목 입력" value="미술"></label>
+        <label>7교시 <input type="text" placeholder="7교시 과목 입력" value="동아리"></label>
 
         <button type="button">기본 시간표 저장</button>
       </form>
@@ -50,4 +54,3 @@
   </footer>
 </body>
 </html>
-

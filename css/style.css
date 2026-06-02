@@ -101,6 +101,7 @@ button:hover {
   transition-property: background-color;
   transition-duration: 0.5s;
 }
+
 input {
   width: 300px;
   padding: 12px 14px;
@@ -142,3 +143,21 @@ footer {
   text-align: center;
 }
 
+.day-btn {
+  margin-right: 8px;
+  background-color: #e8f2ff;
+  color: #15468b;
+}
+
+.day-btn:hover:not(.active) {
+  background-color: #3182f6;
+  color: white;
+
+  transition-property: background-color, color;
+  transition-duration: 0.5s;
+}
+
+.day-btn.active {
+  background-color: #15468b;
+  color: white;
+}
