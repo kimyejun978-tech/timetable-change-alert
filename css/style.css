@@ -22,10 +22,10 @@ body { /*body전체 폰트 변경, 배경색 설정, 글자 색 설정*/
 }
 
 nav a:hover:not(nav a.active) {
-  background-color: #15468b; opacity : 0.5;
-  color: white; opacity : 0.5;
+  background-color: #3182f6;
+  color: white;
 
-  transition: background-color, color;
+  transition-property: background-color, color;
   transition-duration: 0.5s;
 }
 
