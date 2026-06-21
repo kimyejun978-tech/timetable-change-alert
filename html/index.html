@@ -1,17 +1,25 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>시간표 변경 알리미</title>
+  <!-- 표를 먼저 만들고 그다음에 홈 화면 내용을 채워야 해서 data.js를 위에 둠 -->
   <script src="../js/data.js" defer></script>
+  <script src="../js/main.js" defer></script>
   <link rel="stylesheet" href="../css/style.css">
+  <!-- 글씨가 너무 딱딱해 보여서 구글 폰트를 연결해봤다 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- 모든 페이지에서 똑같이 쓰는 상단 부분 -->
   <header>
     <h1>시간표 변경 알리미</h1>
 
     <nav>
+      <!-- 현재 페이지인 홈에만 active가 들어감 -->
       <a href="index.html" class="active">홈</a>
       <a href="basic.html">기본 시간표</a>
       <a href="settings.html">설정</a>
@@ -21,13 +29,15 @@
 
   <main>
 
-
-    </section>
-
+    <!-- 설정 페이지에서 저장한 학교와 반이 여기로 들어온다 -->
     <section>
       <h2>학교/반 정보</h2>
+      <p id="loading_message">시간표를 준비하고 있습니다...</p>
+      <!-- 학교 정보는 main.js가 p 태그를 만들어서 넣어줌 -->
+      <div id="school_information"></div>
     </section>
 
+    <!-- 기본 시간표랑 오늘 시간표를 비교하려고 만든 표. 지금은 자동 조회가 막힌 상태 -->
     <section>
       <h2>교시별 시간표 비교</h2>
 
@@ -39,23 +49,18 @@
             <th>오늘 시간표</th>
           </tr>
         </thead>
+        <!-- 행을 html에 일일이 적는 대신 js에서 7개 생성함 -->
         <tbody id="schedule_malloc"></tbody>
       </table>
     </section>
 
+    <!-- 비교 기능을 다시 만들게 되면 변경된 과목이 이 목록에 뜰 예정 -->
     <section>
       <h2>변경된 수업</h2>
 
-      <ul>
-        <li>3교시 체육 → 자습</li>
-        <li>5교시 수학 → 영어</li>
-      </ul>
+      <ul id="changed_schedule_list"></ul>
     </section>
   </main>
 
-  <footer>
-    <p>기본 시간표와 오늘 시간표를 비교해서 바뀐 수업만 알려주는 웹사이트입니다.</p>
-  </footer>
 </body>
 </html>
-

@@ -1,163 +1,192 @@
-/*
-많이 쓰는 색상 코드들!
-배경: #f7f8fa
-카드/헤더: #ffffff
-테두리: #e5e8eb
-기본 글자: #191f28
-보조 글자: #4e5968
-메인 파랑: #3182f6
-진한 파랑: #15468b
-연한 파랑 배경: #e8f2ff
-변경 강조: #ff6b4a
-변경 강조 배경: #fff3ef
-*/
+  /*
+  많이 쓰는 색상 코드들!!!
+  배경: #f7f8fa
+  카드/헤더: #ffffff
+  테두리: #e5e8eb
+  기본 글자: #191f28
+  보조 글자: #4e5968
+  메인 파랑: #3182f6
+  진한 파랑: #15468b
+  연한 파랑 배경: #e8f2ff
+  변경 강조: #ff6b4a
+  변경 강조 배경: #fff3ef
+  일케 사용을 하는 것을 목표로 잡되, 추후 진행하며 수정하는 걸로!
+  */
+ .jua-regular {
+  /*구글 폰트 사이트에서 가져온 기본 코드. 아직 필요한 곳에만 쓸 수 있게 클래스로 둠*/
+  font-family: "Jua", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
 
 
-body { /*body전체 폰트 변경, 배경색 설정, 글자 색 설정*/
+
+  /*화면 전체에 적용되는 가장 기본적인 색이랑 여백*/
+  body {
   margin: 0;
-  font-family: Arial, sans-serif;
   background-color: #f7f8fa;
   color: #191f28;
-  padding-top: 8.751rem;
+  /*헤더 고정을 없앴으므로 위쪽 빈 공간도 필요 없어서 지웠다*/
 }
 
-nav a:hover:not(nav a.active) {
-  background-color: #3182f6;
-  color: white;
 
-  transition-property: background-color, color;
-  transition-duration: 0.5s;
-}
 
-header { /*헤더 배경색, 테두리 아래쪽만 */
-  background-color: white;
-  border-bottom: 1px solid #e5e8eb;
-  padding: 20px 40px;
-  position: fixed;
-  top: 0;
-  width: 100%;
-	z-index: 100;
-}
+  /*현재 선택된 메뉴는 hover 색이 또 바뀌면 좀 이상해서 not으로 제외함*/
+  nav a:hover:not(nav a.active) {
+    background-color: #3182f6;
+    color: white;
 
-header h1 {
-  margin: 0 0 12px;
-}
+    transition-property: background-color, color;
+    transition-duration: 0.5s;
+  }
 
-nav a { /*인라인 설정 (테두리 굴곡)*/
-  display: inline-block;
-  margin-right: 12px;
-  padding: 8px 12px;
-  color: #4e5968;
-  text-decoration: none;
-  border-radius: 8px;
-}
+  /*처음에는 fixed였는데 화면을 덮어서 그냥 일반 헤더로 되돌렸다*/
+  header { 
+    background-color: white;
+    border-bottom: 1px solid #e5e8eb;
+    padding: 20px 40px;
+    width: 100%;
+    box-sizing: border-box;
+  }
 
-nav a.active { 
-  color: white;
-  background-color: #15468b;
-}
+  /*제목이랑 메뉴 사이가 너무 붙어있어서 아래만 살짝 띄움*/
+  header h1 {
+    margin: 0 0 12px;
+  }
 
-main {
-  width: 1000px;
-  margin: 30px auto;
-}
+  /*a 태그지만 버튼처럼 보이도록 만들어주는 부분*/
+  nav a { 
+    display: inline-block;
+    margin-right: 12px;
+    padding: 8px 12px;
+    color: #4e5968;
+    text-decoration: none;
+    border-radius: 8px;
+  }
 
-section {
-  margin-bottom: 24px;
-  padding: 24px;
-  background-color: white;
-  border: 1px solid #e5e8eb;
-  border-radius: 12px;
-}
+  /*지금 보고 있는 페이지 메뉴 표시*/
+  nav a.active { 
+    color: white;
+    background-color: #15468b;
+  }
 
-section h2 {
-  margin-top: 0;
-}
+  /*화면이 엄청 넓어져도 내용은 가운데 모이게 해둠*/
+  main {
+    width: 90%;
+    max-width: 1000px;
+    margin: 30px auto;
+  }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+  /*각 기능 구역을 흰 카드처럼 분리했다*/
+  section {
+    margin-bottom: 24px;
+    padding: 24px;
+    background-color: white;
+    border: 1px solid #e5e8eb;
+    border-radius: 12px;
+  }
 
-th,
-td {
-  padding: 12px;
-  border-bottom: 1px solid #e5e8eb;
-  text-align: left;
-}
+  section h2 {
+    margin-top: 0;
+  }
 
-button {
-  padding: 10px 16px;
-  border: 0;
-  border-radius: 8px;
-  background-color: #5d9df8;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
+  /*표 사이의 기본 틈을 없애야 선이 하나처럼 보임*/
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
 
-button:hover {
-  background-color: #15468b;
-  transition-property: background-color;
-  transition-duration: 0.5s;
-}
+  /*표 제목이랑 내용 칸에 같은 여백 사용*/
+  th,
+  td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e8eb;
+    text-align: left;
+  }
 
-input {
-  width: 300px;
-  padding: 12px 14px;
-  margin: 6px 0 12px;
+  /*사이트 안의 일반 버튼은 일단 이 디자인으로 통일*/
+  button {
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 8px;
+    background-color: #5d9df8;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+  }
 
-  border: 1px solid #e5e8eb;
-  border-radius: 8px;
-  background-color: #ffffff;
-  
+  /*마우스 올렸을 때 조금 진해지도록 함*/
+  button:hover {
+    background-color: #15468b;
+    transition-property: background-color;
+    transition-duration: 0.5s;
+  }
 
-  color: #191f28;
-  font-size: 15px;
+  /*학교 이름이랑 과목 입력창 공통 모양*/
+  input {
+    width: 300px;
+    padding: 12px 14px;
+    margin: 6px 0 12px;
 
-  outline: none;
-  box-sizing: border-box;
-}
+    border: 1px solid #e5e8eb;
+    border-radius: 8px;
+    background-color: #ffffff;
+    
 
-input::placeholder {
-  color: #8b95a1;
-}
+    color: #191f28;
+    font-size: 15px;
 
-input:focus {
-  border-color: #3182f6;
-}
+    outline: none;
+    box-sizing: border-box;
+  }
 
-input,
-select {
-  margin: 6px 0 12px;
-  padding: 8px;
-}
+  /*안내 문구는 실제 입력값이랑 구분하려고 연하게*/
+  input::placeholder {
+    color: #8b95a1;
+  }
 
-label {
-  display: block;
-}
+  /*지금 입력 중인 칸을 알아보기 쉽게 파란 테두리*/
+  input:focus {
+    border-color: #3182f6;
+  }
 
-footer {
-  padding: 20px 40px;
-  color: #4e5968;
-  text-align: center;
-}
+  /*select에도 input하고 비슷한 간격을 줌*/
+  input,
+  select {
+    margin: 6px 0 12px;
+    padding: 8px;
+  }
 
-.day-btn {
-  margin-right: 8px;
-  background-color: #e8f2ff;
-  color: #15468b;
-}
+  /*라벨이 옆으로 계속 이어지지 않고 한 줄씩 내려가게 함*/
+  label {
+    display: block;
+  }
 
-.day-btn:hover:not(.active) {
-  background-color: #3182f6;
-  color: white;
+  /*footer는 아직 html에 없지만 나중에 추가할 수도 있어서 남겨둔 코드*/
+  footer {
+    padding: 20px 40px;
+    color: #4e5968;
+    text-align: center;
+  }
 
-  transition-property: background-color, color;
-  transition-duration: 0.5s;
-}
+  /*기본 시간표 페이지의 월~금 버튼은 일반 버튼보다 연하게 시작*/
+  .day-btn {
+    margin-right: 8px;
+    background-color: #e8f2ff;
+    color: #15468b;
+  }
 
-.day-btn.active {
-  background-color: #15468b;
-  color: white;
-}
+  /*선택 안 된 요일 버튼에만 hover를 적용*/
+  .day-btn:hover:not(.active) {
+    background-color: #3182f6;
+    color: white;
+
+    transition-property: background-color, color;
+    transition-duration: 0.5s;
+  }
+
+  /*현재 입력하고 있는 요일*/
+  .day-btn.active {
+    background-color: #15468b;
+    color: white;
+  }

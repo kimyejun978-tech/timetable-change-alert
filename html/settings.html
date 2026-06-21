@@ -1,12 +1,18 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>설정 - 시간표 변경 알리미</title>
+  <!-- 저장 버튼이랑 현재 설정 표시를 main.js에서 처리함 -->
+  <script src="../js/main.js" defer></script>
   <link rel="stylesheet" href="../css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- 위쪽 메뉴. 이 파일에서는 설정 버튼만 파란색 -->
   <header>
     <h1>시간표 변경 알리미</h1>
 
@@ -19,48 +25,63 @@
   </header>
 
   <main>
+    <!-- 자동 학교 검색은 빼고 직접 입력하는 방식으로 최종 변경함 -->
     <section>
-      <h2>학교/반 찾기</h2>
+      <h2>학교/반 설정</h2>
 
       <form>
-        <label>학교 이름 <input type="text" placeholder="학교 이름을 입력하세요"></label>
+        <!-- 학교 이름은 서버에 보내는 값이 아니라 브라우저에 저장할 글자임 -->
+        <label>학교 이름 <input type="text" id="school_name_input" placeholder="학교 이름을 입력하세요"></label>
 
+        <p>컴시간 자동 검색은 연결 문제로 제외되어 학교 이름을 직접 저장합니다.</p>
+
+        <!-- 중고등학교 기준으로 3학년까지만 준비 -->
         <label>
           학년
-          <select>
-            <option>1학년</option>
-            <option>2학년</option>
-            <option>3학년</option>
+          <select id="grade_select">
+            <option value="1">1학년</option>
+            <option value="2">2학년</option>
+            <option value="3">3학년</option>
           </select>
         </label>
 
+        <!-- 학교마다 반 수가 달라서 넉넉하게 15반까지 적어둠 -->
         <label>
           반
-          <select>
-            <option>1반</option>
-            <option>2반</option>
-            <option>3반</option>
-            <option>4반</option>
+          <select id="class_select">
+            <option value="1">1반</option>
+            <option value="2">2반</option>
+            <option value="3">3반</option>
+            <option value="4">4반</option>
+            <option value="5">5반</option>
+            <option value="6">6반</option>
+            <option value="7">7반</option>
+            <option value="8">8반</option>
+            <option value="9">9반</option>
+            <option value="10">10반</option>
+            <option value="11">11반</option>
+            <option value="12">12반</option>
+            <option value="13">13반</option>
+            <option value="14">14반</option>
+            <option value="15">15반</option>
           </select>
         </label>
 
-        <button type="button">학교/반 저장</button>
+        <!-- 누르면 localStorage에 세 값을 따로 저장함 -->
+        <button type="button" id="school_save_button">학교/반 저장</button>
       </form>
     </section>
 
+    <!-- 방금 저장한 것이 맞는지 바로 확인하는 칸 -->
     <section>
       <h2>현재 설정</h2>
 
-      <!-- 예시 설정값 -->
-      <p>학교: 새솔고등학교</p>
-      <p>학년: 1학년</p>
-      <p>반: 4반</p>
+      <!-- 처음 접속했거나 저장한 적이 없으면 아래 기본 문구가 그대로 보인다 -->
+      <p id="now_school_text">학교: 아직 저장하지 않음</p>
+      <p id="now_grade_text">학년: 아직 저장하지 않음</p>
+      <p id="now_class_text">반: 아직 저장하지 않음</p>
     </section>
   </main>
 
-  <footer>
-    <p>학교와 반 정보는 시간표를 구분하는 기준으로 사용됩니다.</p>
-  </footer>
 </body>
 </html>
-

@@ -5,11 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>기본 시간표 - 시간표 변경 알리미</title>
 
+  <!-- 이 페이지는 시간표 저장 기능만 필요해서 data.js만 불러온다 -->
   <script src="../js/data.js" defer></script>
   <link rel="stylesheet" href="../css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 </head>
 
 <body>
+  <!-- 페이지 이동 메뉴는 나중에 헷갈리지 않게 순서를 전부 통일함 -->
   <header>
     <h1>시간표 변경 알리미</h1>
 
@@ -22,35 +27,37 @@
   </header>
 
   <main>
-    <section class="select_day">
+    <!-- 어떤 요일의 시간표를 적을 건지 먼저 선택하는 영역 -->
+    <section class="select_day">  
       <h2>요일 선택</h2>
 
       <button type="button" class="day-btn mon">월요일</button>
       <button type="button" class="day-btn tues">화요일</button>
       <button type="button" class="day-btn wednes">수요일</button>
       <button type="button" class="day-btn thurs">목요일</button>
+      <!-- 처음 화면은 금요일로 정해놔서 active도 금요일에 미리 붙임 -->
       <button type="button" class="day-btn fri active">금요일</button>
     </section>
 
+    <!-- 요일 버튼을 누르면 data.js에서 이 부분 안쪽을 통째로 바꾼다 -->
     <section id="scheduleArea">
       <h2>금요일 기본 시간표</h2>
 
       <form>
-        <label>1교시 <input type="text" placeholder="1교시 과목 입력" value="국어"></label>
-        <label>2교시 <input type="text" placeholder="2교시 과목 입력" value="과학"></label>
-        <label>3교시 <input type="text" placeholder="3교시 과목 입력" value="체육"></label>
-        <label>4교시 <input type="text" placeholder="4교시 과목 입력" value="역사"></label>
-        <label>5교시 <input type="text" placeholder="5교시 과목 입력" value="수학"></label>
-        <label>6교시 <input type="text" placeholder="6교시 과목 입력" value="미술"></label>
-        <label>7교시 <input type="text" placeholder="7교시 과목 입력" value="동아리"></label>
+        <!-- 교시는 7교시까지만 입력하도록 일단 고정했다 -->
+        <label>1교시 <input type="text" id="c1" placeholder="1교시 과목 입력" value=""></label>
+        <label>2교시 <input type="text" id="c2" placeholder="2교시 과목 입력" value=""></label>
+        <label>3교시 <input type="text" id="c3" placeholder="3교시 과목 입력" value=""></label>
+        <label>4교시 <input type="text" id="c4" placeholder="4교시 과목 입력" value=""></label>
+        <label>5교시 <input type="text" id="c5" placeholder="5교시 과목 입력" value=""></label>
+        <label>6교시 <input type="text" id="c6" placeholder="6교시 과목 입력" value=""></label>
+        <label>7교시 <input type="text" id="c7" placeholder="7교시 과목 입력" value=""></label>
 
-        <button type="button">기본 시간표 저장</button>
+        <!-- submit으로 하면 새로고침돼서 그냥 button으로 사용 -->
+        <button type="button" class="store_slt">기본 시간표 저장</button>
       </form>
     </section>
   </main>
 
-  <footer>
-    <p>저장된 기본 시간표는 오늘 시간표와 비교할 때 사용됩니다.</p>
-  </footer>
 </body>
 </html>
