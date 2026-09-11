@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>오늘체육</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar hidden" id="topbar">
+      <button class="brand-button" id="homeButton" type="button">오늘체육</button>
+      <div class="topbar-actions">
+        <span id="schoolBadge" class="school-badge"></span>
+        <button class="ghost-button small" id="resetButton" type="button">설정 변경</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="view hero-view" id="roleView">
+        <div class="hero-card">
+          <span class="eyebrow">오늘 체육, 찾으러 다니지 마세요</span>
+          <h1>오늘체육</h1>
+          <p class="hero-copy">선생님이 수업 종목·장소·준비물을 등록하면 학생은 웹에서 바로 확인합니다.</p>
+          <div class="role-grid">
+            <button class="role-card" data-role="student" type="button">
+              <span class="role-icon">🎒</span>
+              <strong>학생으로 시작</strong>
+              <small>학교와 반을 한 번만 설정해요.</small>
+            </button>
+            <button class="role-card" data-role="teacher" type="button">
+              <span class="role-icon">🏫</span>
+              <strong>교사로 시작</strong>
+              <small>반별 체육 수업을 빠르게 등록해요.</small>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="schoolView">
+        <div class="page-card narrow">
+          <button class="text-button back-button" id="schoolBackButton" type="button">← 이전</button>
+          <span class="eyebrow">1단계</span>
+          <h2>학교를 찾아주세요</h2>
+          <p class="muted">나이스(NEIS) 학교 기본정보에서 전국 학교를 검색합니다.</p>
+          <form id="schoolSearchForm" class="search-row">
+            <input id="schoolSearchInput" type="search" placeholder="예: 대덕소프트웨어마이스터고" autocomplete="off" />
+            <button class="primary-button" type="submit">검색</button>
+          </form>
+          <p id="schoolSearchStatus" class="status-text"></p>
+          <div id="schoolResults" class="school-results"></div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="studentSetupView">
+        <div class="page-card narrow">
+          <button class="text-button back-button" data-back="school" type="button">← 학교 다시 선택</button>
+          <span class="eyebrow">2단계</span>
+          <h2>내 반을 설정해요</h2>
+          <div id="studentSchoolSummary" class="selection-summary"></div>
+          <form id="studentSetupForm" class="form-stack">
+            <label>학년
+              <select id="studentGrade" required>
+                <option value="">선택</option>
+                <option value="1">1학년</option>
+                <option value="2">2학년</option>
+                <option value="3">3학년</option>
+              </select>
+            </label>
+            <label>반
+              <input id="studentClassNo" type="number" min="1" max="30" placeholder="예: 2" required />
+            </label>
+            <button class="primary-button full" type="submit">설정 완료</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="view hidden" id="teacherSetupView">
+        <div class="page-card narrow">
+          <button class="text-button back-button" data-back="school" type="button">← 학교 다시 선택</button>
+          <span class="eyebrow">2단계</span>
+          <h2>교사 프로필을 설정해요</h2>
+          <div id="teacherSchoolSummary" class="selection-summary"></div>
+          <form id="teacherSetupForm" class="form-stack">
+            <label>이름
+              <input id="teacherName" type="text" maxlength="20" placeholder="예: 김체육" required />
+            </label>
+            <label>관리 PIN
+              <input id="teacherPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" placeholder="4~8자리 숫자" required />
+              <small class="field-help">MVP에서는 이 브라우저에만 저장됩니다. 실제 배포 버전은 교사 인증으로 교체할 예정입니다.</small>
+            </label>
+            <button class="primary-button full" type="submit">교사 화면 시작</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="view hidden" id="studentHomeView">
+        <div class="dashboard-grid student-grid">
+          <section class="welcome-block">
+            <div>
+              <span class="eyebrow" id="studentDateLabel"></span>
+              <h2 id="studentClassLabel">오늘의 체육</h2>
+            </div>
+            <button class="ghost-button" id="refreshStudentButton" type="button">새로고침</button>
+          </section>
+
+          <section id="todayLessonCard" class="lesson-card"></section>
+
+          <section class="page-card">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">이번 주</span>
+                <h3>체육 일정</h3>
+              </div>
+            </div>
+            <div id="weekLessonList" class="week-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view hidden" id="teacherHomeView">
+        <div class="dashboard-grid">
+          <section class="welcome-block">
+            <div>
+              <span class="eyebrow">Teacher</span>
+              <h2 id="teacherGreeting">오늘 수업을 등록해볼까요?</h2>
+            </div>
+            <button class="primary-button" id="newLessonButton" type="button">+ 수업 등록</button>
+          </section>
+
+          <section class="page-card">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">오늘</span>
+                <h3>등록된 수업</h3>
+              </div>
+            </div>
+            <div id="teacherLessonList" class="teacher-lesson-list"></div>
+          </section>
+
+          <section class="page-card subtle-card">
+            <strong>프로토타입 안내</strong>
+            <p>현재 버전은 학교 검색은 NEIS 실데이터를 사용하고, 수업 정보는 브라우저 LocalStorage에 저장합니다. 실제 서비스 단계에서는 Supabase 등 서버 DB와 교사 인증을 연결하면 됩니다.</p>
+          </section>
+        </div>
+      </section>
+
+      <section class="view hidden" id="lessonEditorView">
+        <div class="page-card editor-card">
+          <button class="text-button back-button" id="editorBackButton" type="button">← 교사 화면</button>
+          <span class="eyebrow">수업 정보</span>
+          <h2 id="editorTitle">수업 등록</h2>
+          <form id="lessonForm" class="form-grid">
+            <input id="lessonId" type="hidden" />
+            <label>날짜
+              <input id="lessonDate" type="date" required />
+            </label>
+            <label>교시
+              <select id="lessonPeriod" required>
+                <option value="">선택</option>
+                <option value="1">1교시</option><option value="2">2교시</option><option value="3">3교시</option>
+                <option value="4">4교시</option><option value="5">5교시</option><option value="6">6교시</option>
+                <option value="7">7교시</option><option value="8">8교시</option>
+              </select>
+            </label>
+            <label>학년
+              <select id="lessonGrade" required>
+                <option value="">선택</option>
+                <option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option>
+              </select>
+            </label>
+            <label>반
+              <input id="lessonClasses" type="text" placeholder="예: 1, 2, 3" required />
+              <small class="field-help">여러 반을 한 번에 등록하려면 쉼표로 구분하세요.</small>
+            </label>
+
+            <fieldset class="full-span">
+              <legend>종목</legend>
+              <div class="choice-grid" id="activityChoices">
+                <button type="button" class="choice-button" data-value="축구">⚽ 축구</button>
+                <button type="button" class="choice-button" data-value="농구">🏀 농구</button>
+                <button type="button" class="choice-button" data-value="배드민턴">🏸 배드민턴</button>
+                <button type="button" class="choice-button" data-value="배구">🏐 배구</button>
+                <button type="button" class="choice-button" data-value="탁구">🏓 탁구</button>
+                <button type="button" class="choice-button" data-value="자유체육">🎯 자유체육</button>
+              </div>
+              <input id="lessonActivity" type="text" placeholder="선택하거나 직접 입력" required />
+            </fieldset>
+
+            <fieldset class="full-span">
+              <legend>장소</legend>
+              <div class="choice-grid" id="locationChoices">
+                <button type="button" class="choice-button" data-value="운동장">운동장</button>
+                <button type="button" class="choice-button" data-value="체육관">체육관</button>
+                <button type="button" class="choice-button" data-value="교실">교실</button>
+                <button type="button" class="choice-button" data-value="기타">기타</button>
+              </div>
+              <input id="lessonLocation" type="text" placeholder="선택하거나 직접 입력" required />
+            </fieldset>
+
+            <fieldset class="full-span">
+              <legend>준비물</legend>
+              <div class="check-row">
+                <label class="check-chip"><input type="checkbox" name="equipment" value="체육복" /> 체육복</label>
+                <label class="check-chip"><input type="checkbox" name="equipment" value="운동화" /> 운동화</label>
+                <label class="check-chip"><input type="checkbox" name="equipment" value="개인 라켓" /> 개인 라켓</label>
+                <label class="check-chip"><input type="checkbox" name="equipment" value="없음" /> 없음</label>
+              </div>
+            </fieldset>
+
+            <label class="full-span">추가 안내
+              <textarea id="lessonNotice" rows="4" maxlength="200" placeholder="예: 농구화가 있으면 가져오세요."></textarea>
+            </label>
+
+            <div class="editor-actions full-span">
+              <button id="deleteLessonButton" class="danger-button hidden" type="button">삭제</button>
+              <button class="primary-button" type="submit">저장하기</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
