@@ -2,7 +2,7 @@
 
 ## 1. Supabase
 
-현재 `oneul-pe` 실제 프로젝트에는 001~012 마이그레이션이 적용되어 있습니다. 새 프로젝트에서는 아래 순서대로 적용합니다.
+현재 `oneul-pe` 실제 프로젝트에는 001~013 마이그레이션이 적용되어 있습니다. 새 프로젝트에서는 아래 순서대로 적용합니다.
 
 ```text
 1. supabase/schema.sql
@@ -17,6 +17,7 @@
 10. supabase/010_secure_initial_admin_bootstrap.sql
 11. supabase/011_student_privacy_minimization.sql
 12. supabase/012_teacher_approval_context.sql
+13. supabase/013_teacher_access_revocation.sql
 ```
 
 확인할 테이블:
@@ -40,6 +41,7 @@ teacher_timetable_aliases
 교사 RPC authenticated 전용
 operator_promote_school_admin service_role 전용
 get_my_teacher_approval_context authenticated 전용
+revoke_teacher_access authenticated 전용 + 함수 내부 school_admin 검사
 pe_lessons Realtime publication 포함
 ```
 
@@ -72,7 +74,33 @@ operator_promote_school_admin(<teacher auth user uuid>)
 
 이후 추가 교사는 학교 관리자 화면에서 승인합니다.
 
-## 3. VAPID
+## 3. 교사 권한 회수 테스트
+
+학교 관리자로 로그인한 뒤 `승인된 교사 관리`에서 다른 일반 교사의 권한을 회수합니다.
+
+기대 동작:
+
+```text
+대상 교사 verified=false
+컴시간 별칭 제거
+공동/담당 수업에서 대상 교사 연결 제거
+대상이 단독 담당이던 수업은 현재 학교 관리자에게 자동 인계
+대상 교사의 신규 교사용 RPC 호출 즉시 차단
+```
+
+대상 교사가 이미 `/teacher`를 열어둔 상태에서도 확인합니다.
+
+```text
+최대 약 60초
+또는 탭 재진입
+또는 온라인 복구
+→ teacher-session-guard.js 재검증
+→ 로그아웃 / teacher-login 이동
+```
+
+학교 관리자는 자기 자신의 권한을 회수할 수 없어야 합니다.
+
+## 4. VAPID
 
 ```bash
 npx web-push generate-vapid-keys
@@ -80,7 +108,7 @@ npx web-push generate-vapid-keys
 
 Private Key는 브라우저/GitHub 소스에 넣지 않습니다.
 
-## 4. Vercel Import
+## 5. Vercel Import
 
 GitHub 저장소:
 
@@ -98,7 +126,7 @@ Root Directory = /
 
 `feat/oneul-pe-mvp` 커밋에 Preview Deployment가 생성되는지 확인합니다.
 
-## 5. Environment Variables
+## 6. Environment Variables
 
 공개 가능:
 
@@ -119,7 +147,7 @@ NEIS_API_KEY
 
 `/api/public-config`는 실제 환경변수가 있을 때만 공개 fallback을 override합니다.
 
-## 6. 배포 직후
+## 7. 배포 직후
 
 ```text
 GET /
@@ -142,7 +170,7 @@ Push까지 준비되면:
 { "readyForPush": true }
 ```
 
-## 7. 최초 교사 테스트
+## 8. 최초 교사 테스트
 
 ```text
 교사 가입
@@ -154,7 +182,7 @@ Push까지 준비되면:
 → 교사 대시보드 접근
 ```
 
-## 8. 추가 교사 테스트
+## 9. 추가 교사 테스트
 
 ```text
 같은 학교 다른 이메일 가입
@@ -164,7 +192,7 @@ Push까지 준비되면:
 → 로그인 성공
 ```
 
-## 9. 학생 테스트
+## 10. 학생 테스트
 
 ```text
 /student
@@ -176,7 +204,7 @@ Push까지 준비되면:
 
 학생 수업/알림 응답과 오프라인 캐시에 교사 개인 이름/ID가 없는지 확인합니다.
 
-## 10. 컴시간 테스트
+## 11. 컴시간 테스트
 
 ```text
 컴시간알리미
@@ -185,13 +213,13 @@ Push까지 준비되면:
 
 컴시간 담당교사명과 로그인 이름이 다르면 **컴시간 이름 매칭 설정**에서 별칭을 등록합니다.
 
-## 11. 날씨 / Realtime
+## 12. 날씨 / Realtime
 
 교사 화면에서 학교 주소, 현재 날씨, 교시별 예보, 우천 주의를 확인합니다.
 
 교사 A/B 화면을 동시에 열고 한쪽이 수업을 변경했을 때 다른 화면이 Realtime으로 갱신되는지 확인합니다.
 
-## 12. Web Push
+## 13. Web Push
 
 학생:
 
@@ -209,7 +237,7 @@ Push까지 준비되면:
 → 해당 학교·학년·반 학생만 Push 수신
 ```
 
-## 13. 오프라인
+## 14. 오프라인
 
 온라인에서 학생 화면을 한 번 연 뒤 네트워크를 끕니다.
 
@@ -220,7 +248,7 @@ PWA 정적 UI 로딩
 오프라인 저장본 표시
 ```
 
-## 14. 대회 데모
+## 15. 대회 데모
 
 ```text
 1. 학생: 학교/반 설정
@@ -234,15 +262,17 @@ PWA 정적 UI 로딩
 9. 학생 변경 알림
 10. 공동 담당/별칭/권한 분리 소개
 11. 학생 개인정보 최소화 소개
+12. 관리자 승인/권한 회수 구조 소개
 ```
 
-## 15. 자동 검증
+## 16. 자동 검증
 
 ```text
 JS 문법
 HTML ↔ JS
 Auth / RLS / 최초 관리자 보안
 승인 경로 구분
+교사 권한 회수 / 세션 재검증
 공동 담당 / 변경 이력
 컴시간 별칭
 학생 개인정보 최소화
