@@ -4,6 +4,8 @@ window.OneulPE = (() => {
     teacherProfiles: 'oneulPe.teacherProfiles.v2',
     teacherSession: 'oneulPe.teacherSession.v2',
     lessons: 'oneulPe.lessons.v2',
+    lessonChanges: 'oneulPe.lessonChanges.v1',
+    studentReadChanges: 'oneulPe.studentReadChanges.v1',
     schoolGeo: 'oneulPe.schoolGeo.v1',
   };
 
