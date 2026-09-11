@@ -50,6 +50,11 @@
 .schedule-filter-bar .segment-control { margin-bottom: 0; }
 .schedule-filter-summary { color: var(--muted); }
 .schedule-filter-empty { margin: 8px 0 0; }
+.timetable-alias-panel { margin: 10px 0 4px; padding: 13px 15px; border-radius: 15px; }
+.timetable-alias-panel summary { cursor: pointer; }
+.timetable-alias-panel p { margin: 9px 0; }
+.inline-form-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.inline-form-row input { min-width: 0; }
 .schedule-period { display: grid; gap: 4px; align-self: stretch; align-content: center; border-right: 1px solid var(--line); }
 .schedule-period strong { color: var(--primary); font-size: 16px; }
 .schedule-period small { color: var(--muted); }
@@ -132,4 +137,6 @@
   .history-heading { align-items: flex-start; }
   .schedule-filter-bar { align-items: stretch; }
   .schedule-filter-bar .segment-control { width: 100%; overflow-x: auto; }
+  .inline-form-row { grid-template-columns: 1fr; }
+  .inline-form-row .ghost-button { width: 100%; }
 }
