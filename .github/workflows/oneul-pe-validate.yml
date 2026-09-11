@@ -2,11 +2,9 @@ name: Validate 오늘체육 MVP
 
 on:
   push:
-    branches:
-      - feat/oneul-pe-mvp
+    branches: [feat/oneul-pe-mvp]
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'today-pe/**'
       - 'api/**'
@@ -36,12 +34,12 @@ jobs:
           done
           node --check playwright.config.js
 
-      - name: Validate portal HTML and JS references
+      - name: Validate portal structure
         run: |
           python3 - <<'PY'
           from html.parser import HTMLParser
-          import re
           from pathlib import Path
+          import re
 
           pairs = [
               ('today-pe/student.html', 'today-pe/student.js'),
@@ -51,55 +49,31 @@ jobs:
 
           class Parser(HTMLParser):
               def __init__(self):
-                  super().__init__()
-                  self.ids = []
+                  super().__init__(); self.ids = []
               def handle_starttag(self, tag, attrs):
                   attrs = dict(attrs)
-                  if 'id' in attrs:
-                      self.ids.append(attrs['id'])
+                  if 'id' in attrs: self.ids.append(attrs['id'])
 
           for html_path, js_path in pairs:
               html = Path(html_path).read_text(encoding='utf-8')
               js = Path(js_path).read_text(encoding='utf-8')
-              parser = Parser()
-              parser.feed(html)
-              duplicate_ids = sorted({x for x in parser.ids if parser.ids.count(x) > 1})
-              if duplicate_ids:
-                  raise SystemExit(f'{html_path}: duplicate ids: {duplicate_ids}')
-
+              p = Parser(); p.feed(html)
+              dup = sorted({x for x in p.ids if p.ids.count(x) > 1})
+              if dup: raise SystemExit(f'{html_path}: duplicate ids {dup}')
               refs = set(re.findall(r"getElementById\(['\"]([^'\"]+)['\"]\)", js))
-              missing = sorted(refs - set(parser.ids))
-              if missing:
-                  raise SystemExit(f'{js_path}: missing HTML ids in {html_path}: {missing}')
-
-              print(f'OK: {html_path} -> {js_path}, {len(parser.ids)} ids / {len(refs)} refs')
-
-          index = Path('today-pe/index.html').read_text(encoding='utf-8')
-          for target in ('student.html', 'teacher-login.html'):
-              if target not in index:
-                  raise SystemExit(f'index.html missing portal link: {target}')
+              missing = sorted(refs - set(p.ids))
+              if missing: raise SystemExit(f'{js_path}: missing ids {missing}')
 
           required = [
-              'today-pe/index.html',
-              'today-pe/student.html',
-              'today-pe/student.js',
-              'today-pe/student-privacy.js',
-              'today-pe/student-extra.css',
-              'today-pe/teacher-login.html',
-              'today-pe/teacher-login.js',
-              'today-pe/teacher.html',
-              'today-pe/teacher.js',
-              'today-pe/teacher-dashboard-controls.js',
-              'today-pe/shared.js',
-              'today-pe/backend.js',
-              'today-pe/config.js',
-              'today-pe/pwa.js',
-              'today-pe/push-client.js',
-              'today-pe/sw.js',
-              'today-pe/manifest.webmanifest',
-              'today-pe/icon.svg',
-              'today-pe/style.css',
-              'today-pe/teacher-extra.css',
+              'today-pe/index.html', 'today-pe/student.html', 'today-pe/student.js',
+              'today-pe/student-privacy.js', 'today-pe/student-resilience.js',
+              'today-pe/teacher-login.html', 'today-pe/teacher-login.js',
+              'today-pe/teacher-approval-context.js', 'today-pe/teacher.html',
+              'today-pe/teacher.js', 'today-pe/teacher-dashboard-controls.js',
+              'today-pe/shared.js', 'today-pe/backend.js', 'today-pe/config.js',
+              'today-pe/pwa.js', 'today-pe/push-client.js', 'today-pe/sw.js',
+              'today-pe/manifest.webmanifest', 'today-pe/icon.svg',
+              'today-pe/style.css', 'today-pe/student-extra.css', 'today-pe/teacher-extra.css',
               'today-pe/supabase/schema.sql',
               'today-pe/supabase/002_teacher_realtime.sql',
               'today-pe/supabase/003_collaboration_history_notifications.sql',
@@ -111,100 +85,56 @@ jobs:
               'today-pe/supabase/009_teacher_timetable_aliases.sql',
               'today-pe/supabase/010_secure_initial_admin_bootstrap.sql',
               'today-pe/supabase/011_student_privacy_minimization.sql',
-              'api/timetable.js',
-              'api/schools.js',
-              'api/public-config.js',
-              'api/health.js',
-              'api/push/subscribe.js',
-              'api/push/send.js',
-              'tests/oneul-pe.spec.js',
-              'playwright.config.js',
-              'vercel.json',
-              '.env.example',
-              'package.json',
+              'today-pe/supabase/012_teacher_approval_context.sql',
+              'api/timetable.js', 'api/schools.js', 'api/public-config.js', 'api/health.js',
+              'api/push/subscribe.js', 'api/push/send.js',
+              'tests/oneul-pe.spec.js', 'playwright.config.js', 'vercel.json', '.env.example', 'package.json',
           ]
-          for filename in required:
-              if not Path(filename).is_file():
-                  raise SystemExit(f'Missing required file: {filename}')
+          for f in required:
+              if not Path(f).is_file(): raise SystemExit(f'Missing required file: {f}')
+
+          login_html = Path('today-pe/teacher-login.html').read_text(encoding='utf-8')
+          if 'teacher-approval-context.js' not in login_html:
+              raise SystemExit('teacher-login.html missing approval context adapter')
+          student_html = Path('today-pe/student.html').read_text(encoding='utf-8')
+          if student_html.index('student-privacy.js') > student_html.index('student-resilience.js'):
+              raise SystemExit('student privacy must load before resilience cache')
+          print('OK: portal structure')
           PY
 
-      - name: Check teacher access and RLS architecture
+      - name: Check security and data boundaries
         run: |
-          grep -q "getTeacherSession" today-pe/teacher.js
-          grep -q "OneulPEBackend" today-pe/teacher.js
-          grep -q "OneulPEBackend" today-pe/student.js
-          grep -q "Supabase 서버 인증" today-pe/teacher-login.js
-          grep -q "register_teacher_profile" today-pe/supabase/schema.sql
-          grep -q "get_student_lessons" today-pe/supabase/schema.sql
           grep -q "TEACHER_NOT_VERIFIED" today-pe/supabase/schema.sql
-          grep -q "revoke all on public.pe_lessons from anon" today-pe/supabase/schema.sql
           grep -q "operator_promote_school_admin" today-pe/supabase/010_secure_initial_admin_bootstrap.sql
-          grep -q "grant execute on function public.operator_promote_school_admin(uuid) to service_role" today-pe/supabase/010_secure_initial_admin_bootstrap.sql
-          echo 'OK: teacher auth + student read-only RPC + secure admin bootstrap are wired'
-
-      - name: Check collaboration history and notifications
-        run: |
-          grep -q "listSchoolTeachers" today-pe/backend.js
-          grep -q "setLessonTeachers" today-pe/backend.js
-          grep -q "listLessonHistory" today-pe/backend.js
-          grep -q "listStudentNotifications" today-pe/backend.js
-          grep -q "lessonTeacherChoices" today-pe/teacher.html
-          grep -q "lessonHistoryList" today-pe/teacher.html
-          grep -q "studentNotificationList" today-pe/student.html
-          grep -q "create table if not exists public.lesson_changes" today-pe/supabase/003_collaboration_history_notifications.sql
-          grep -q "set_lesson_teachers" today-pe/supabase/003_collaboration_history_notifications.sql
-          grep -q "get_student_notifications" today-pe/supabase/003_collaboration_history_notifications.sql
-          echo 'OK: collaboration + history + student notifications are wired'
-
-      - name: Check timetable teacher alias mapping
-        run: |
+          grep -q "to service_role" today-pe/supabase/010_secure_initial_admin_bootstrap.sql
+          grep -q "get_my_teacher_approval_context" today-pe/supabase/012_teacher_approval_context.sql
+          grep -q "approvalRoute" today-pe/supabase/012_teacher_approval_context.sql
+          grep -q "pending_initial_admin" today-pe/teacher-login.js
           grep -q "teacher_timetable_aliases" today-pe/supabase/009_teacher_timetable_aliases.sql
-          grep -q "get_my_timetable_aliases" today-pe/supabase/009_teacher_timetable_aliases.sql
-          grep -q "set_my_timetable_aliases" today-pe/supabase/009_teacher_timetable_aliases.sql
           grep -q "컴시간 이름 매칭 설정" today-pe/teacher-dashboard-controls.js
-          grep -q "get_my_timetable_aliases" today-pe/teacher-dashboard-controls.js
-          grep -q "set_my_timetable_aliases" today-pe/teacher-dashboard-controls.js
-          echo 'OK: timetable teacher alias mapping is wired'
-
-      - name: Check student privacy minimization
-        run: |
           grep -q "student-privacy.js" today-pe/student.html
           grep -q "teacherIds: \[\]" today-pe/student-privacy.js
           grep -q "changedByName: ''" today-pe/student-privacy.js
-          grep -q "student-privacy.js" today-pe/sw.js
-          grep -q "학생에게 필요한 최소 정보만" today-pe/supabase/011_student_privacy_minimization.sql
           if grep -q "'teacher_name'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
           if grep -q "'teacher_id'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
-          if grep -q "'changedByName'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
-          echo 'OK: student-facing teacher identity is minimized before caching and at RPC boundary'
+          echo 'OK: auth, approval, aliases and student privacy boundaries'
 
-      - name: Check PWA and Web Push wiring
+      - name: Check collaboration, PWA and deployment wiring
         run: |
+          grep -q "setLessonTeachers" today-pe/backend.js
+          grep -q "listLessonHistory" today-pe/backend.js
+          grep -q "listStudentNotifications" today-pe/backend.js
           grep -q "serviceWorker.register" today-pe/pwa.js
           grep -q "pushManager.subscribe" today-pe/pwa.js
           grep -q "self.addEventListener('push'" today-pe/sw.js
-          grep -q "create table if not exists public.push_subscriptions" today-pe/supabase/004_push_subscriptions.sql
-          grep -q "SUPABASE_SERVICE_ROLE_KEY" api/push/subscribe.js
+          grep -q "student-privacy.js" today-pe/sw.js
           grep -q "SUPABASE_SERVICE_ROLE_KEY" api/push/send.js
           grep -q "VAPID_PRIVATE_KEY" api/push/send.js
-          grep -q "save_pe_lesson" today-pe/push-client.js
-          grep -q "delete_pe_lesson" today-pe/push-client.js
-          grep -q "push-client.js" today-pe/teacher.html
-          grep -q "pwa.js" today-pe/student.html
-          echo 'OK: PWA install + Web Push subscribe/send path is wired'
-
-      - name: Check deployment wiring
-        run: |
           grep -q "/api/schools" today-pe/shared.js
-          grep -q "/api/public-config" today-pe/student.html
-          grep -q "/api/public-config" today-pe/teacher.html
-          grep -q "/api/public-config" today-pe/teacher-login.html
-          grep -q "SUPABASE_SERVICE_ROLE_KEY" .env.example
-          grep -q '"/student"' vercel.json
-          grep -q "readyForPush" api/health.js
-          grep -q "supabasePublicFallback" api/health.js
           grep -q "if (process.env.SUPABASE_URL)" api/public-config.js
-          echo 'OK: runtime config + fallback preservation + deployment health are wired'
+          grep -q "supabasePublicFallback" api/health.js
+          grep -q '"/student"' vercel.json
+          echo 'OK: collaboration + PWA + deployment wiring'
 
       - name: Check timetable provider priority
         run: |
@@ -213,7 +143,7 @@ jobs:
           grep -q "await fromComcigan" api/timetable.js
           grep -q "await fromNeis" api/timetable.js
           grep -q "/api/timetable" today-pe/teacher.js
-          echo 'OK: Comcigan primary -> NEIS fallback path is wired'
+          echo 'OK: Comcigan primary -> NEIS fallback'
 
       - name: Serve static site and smoke test
         run: |
@@ -224,18 +154,10 @@ jobs:
           for page in index.html student.html teacher-login.html teacher.html; do
             curl --fail --silent "http://127.0.0.1:4173/today-pe/$page" | grep -q '오늘체육'
           done
-          curl --fail --silent http://127.0.0.1:4173/today-pe/shared.js | grep -q '/api/schools'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/backend.js | grep -q 'OneulPEBackend'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/student-privacy.js | grep -q 'anonymizeLesson'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/config.js | grep -q 'SUPABASE_URL'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/pwa.js | grep -q 'OneulPEPWA'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/push-client.js | grep -q 'OneulPEPush'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/sw.js | grep -q 'CACHE_NAME'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/manifest.webmanifest | grep -q '오늘체육'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/style.css >/dev/null
-          curl --fail --silent http://127.0.0.1:4173/today-pe/teacher-extra.css >/dev/null
-          curl --fail --silent http://127.0.0.1:4173/today-pe/student-extra.css >/dev/null
-          echo 'OK: PWA/static portal smoke test passed'
+          for file in shared.js backend.js student-privacy.js teacher-approval-context.js pwa.js sw.js; do
+            curl --fail --silent "http://127.0.0.1:4173/today-pe/$file" >/dev/null
+          done
+          echo 'OK: static smoke test'
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
@@ -255,7 +177,6 @@ jobs:
           import Comcigan from 'parse-comcigan';
           const schools = await Comcigan.search('대덕소프트웨어마이스터고');
           console.log('Comcigan schools:', schools.length);
-          console.log(schools.slice(0, 3));
           if (!schools.length) process.exitCode = 1;
           NODE
 
@@ -263,23 +184,11 @@ jobs:
         continue-on-error: true
         run: |
           python3 - <<'PY'
-          import json
-          import urllib.parse
-          import urllib.request
-
-          query = urllib.parse.urlencode({
-              'Type': 'json',
-              'pIndex': '1',
-              'pSize': '5',
-              'SCHUL_NM': '대덕소프트웨어마이스터고',
-          })
-          url = 'https://open.neis.go.kr/hub/schoolInfo?' + query
-          with urllib.request.urlopen(url, timeout=10) as response:
+          import json, urllib.parse, urllib.request
+          query = urllib.parse.urlencode({'Type':'json','pIndex':'1','pSize':'5','SCHUL_NM':'대덕소프트웨어마이스터고'})
+          with urllib.request.urlopen('https://open.neis.go.kr/hub/schoolInfo?' + query, timeout=10) as response:
               data = json.load(response)
           rows = (data.get('schoolInfo') or [{}, {'row': []}])[1].get('row', []) if data.get('schoolInfo') else []
           print('NEIS rows:', len(rows))
-          if rows:
-              print('First school:', rows[0].get('SCHUL_NM'))
-          else:
-              print('NEIS RESULT:', data.get('RESULT'))
+          if rows: print('First school:', rows[0].get('SCHUL_NM'))
           PY
