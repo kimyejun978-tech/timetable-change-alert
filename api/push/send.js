@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
+const CHANGE_WINDOW_MS = 5 * 60 * 1000;
+
 function serverClient() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -30,41 +32,64 @@ function bearerToken(req) {
   return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
 }
 
-function validClass(grade, classNo) {
-  return Number.isInteger(grade) && grade >= 1 && grade <= 6
-    && Number.isInteger(classNo) && classNo >= 1 && classNo <= 50;
+function validUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 
-async function resolveDeletedLesson(supabase, teacherSchoolId, lessonId) {
-  if (!lessonId) return null;
-
-  const { data: existing } = await supabase
-    .from('pe_lessons')
-    .select('id,school_id,grade,class_number,period,activity,location')
-    .eq('id', lessonId)
-    .eq('school_id', teacherSchoolId)
-    .maybeSingle();
-  if (existing) return existing;
-
-  const { data: history, error } = await supabase
+async function resolveRecentAuthorizedChange(supabase, { schoolId, userId, lessonId, requestedAction }) {
+  const cutoff = new Date(Date.now() - CHANGE_WINDOW_MS).toISOString();
+  let query = supabase
     .from('lesson_changes')
-    .select('school_id,grade,class_number,period,before_data,created_at')
-    .eq('school_id', teacherSchoolId)
-    .eq('change_type', 'delete')
-    .eq('before_data->>id', lessonId)
+    .select('id,lesson_id,school_id,grade,class_number,period,change_type,changed_by,before_data,after_data,created_at')
+    .eq('school_id', schoolId)
+    .eq('changed_by', userId)
+    .gte('created_at', cutoff)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  if (!history) return null;
+    .limit(1);
 
+  if (requestedAction === 'delete') {
+    query = query
+      .eq('change_type', 'delete')
+      .eq('before_data->>id', lessonId);
+  } else {
+    query = query
+      .in('change_type', ['create', 'update'])
+      .eq('lesson_id', lessonId);
+  }
+
+  const { data: change, error } = await query.maybeSingle();
+  if (error) throw error;
+  if (!change) return null;
+
+  if (change.change_type !== 'delete') {
+    const { data: lesson, error: lessonError } = await supabase
+      .from('pe_lessons')
+      .select('id,school_id')
+      .eq('id', lessonId)
+      .eq('school_id', schoolId)
+      .maybeSingle();
+    if (lessonError) throw lessonError;
+    if (!lesson) return null;
+
+    const { data: assignment, error: assignmentError } = await supabase
+      .from('lesson_teachers')
+      .select('lesson_id')
+      .eq('lesson_id', lessonId)
+      .eq('teacher_id', userId)
+      .maybeSingle();
+    if (assignmentError) throw assignmentError;
+    if (!assignment) return null;
+  }
+
+  const snapshot = change.change_type === 'delete' ? change.before_data : change.after_data;
   return {
-    school_id: history.school_id,
-    grade: history.grade,
-    class_number: history.class_number,
-    period: history.period,
-    activity: history.before_data?.activity || '체육',
-    location: history.before_data?.location || '',
+    changeId: change.id,
+    action: change.change_type,
+    grade: Number(change.grade),
+    classNo: Number(change.class_number),
+    period: Number(change.period || snapshot?.period || 0),
+    activity: String(snapshot?.activity || '체육'),
+    location: String(snapshot?.location || ''),
   };
 }
 
@@ -91,26 +116,23 @@ export default async function handler(req, res) {
     if (teacherError || !teacher?.verified) return res.status(403).json({ error: 'TEACHER_NOT_VERIFIED' });
 
     const body = normalizeBody(req);
-    const action = ['create', 'update', 'delete'].includes(body.action) ? body.action : 'update';
-    let grade = Number(body.grade);
-    let classNo = Number(body.classNo);
-    let period = Number(body.period || 0);
-    let activity = String(body.activity || '체육');
-    let location = String(body.location || '');
-
-    if (!validClass(grade, classNo) && body.lessonId) {
-      const lesson = await resolveDeletedLesson(supabase, teacher.school_id, String(body.lessonId));
-      if (lesson) {
-        grade = Number(lesson.grade);
-        classNo = Number(lesson.class_number);
-        period = Number(lesson.period || 0);
-        activity = String(lesson.activity || '체육');
-        location = String(lesson.location || '');
-      }
+    const requestedAction = String(body.action || '');
+    const lessonId = String(body.lessonId || '');
+    if (!['create', 'update', 'delete'].includes(requestedAction)) {
+      return res.status(400).json({ error: 'INVALID_ACTION' });
+    }
+    if (!validUuid(lessonId)) {
+      return res.status(400).json({ error: 'INVALID_LESSON_ID' });
     }
 
-    if (!validClass(grade, classNo)) {
-      return res.status(400).json({ error: 'INVALID_CLASS' });
+    const change = await resolveRecentAuthorizedChange(supabase, {
+      schoolId: teacher.school_id,
+      userId: authData.user.id,
+      lessonId,
+      requestedAction,
+    });
+    if (!change) {
+      return res.status(403).json({ error: 'PUSH_CHANGE_NOT_AUTHORIZED' });
     }
 
     const defaultTitles = {
@@ -118,23 +140,22 @@ export default async function handler(req, res) {
       update: '체육 안내가 변경됐어요',
       delete: '체육 안내가 취소됐어요',
     };
-    const generatedBody = [
-      `${grade}-${classNo}`,
-      period ? `${period}교시` : '',
-      activity,
-      location,
-    ].filter(Boolean).join(' · ');
-    const title = String(body.title || defaultTitles[action]).slice(0, 80);
-    const message = String(body.body || generatedBody || '체육수업 안내가 변경되었습니다.').slice(0, 240);
-    const url = String(body.url || './student.html');
-    const tag = String(body.tag || `oneul-pe-${grade}-${classNo}`).slice(0, 100);
+    const title = defaultTitles[change.action] || defaultTitles.update;
+    const message = [
+      `${change.grade}-${change.classNo}`,
+      change.period ? `${change.period}교시` : '',
+      change.activity,
+      change.location,
+    ].filter(Boolean).join(' · ').slice(0, 240);
+    const url = './student.html';
+    const tag = `oneul-pe-${change.grade}-${change.classNo}`;
 
     const { data: subscriptions, error: subscriptionError } = await supabase
       .from('push_subscriptions')
       .select('endpoint,p256dh,auth')
       .eq('school_id', teacher.school_id)
-      .eq('grade', grade)
-      .eq('class_number', classNo);
+      .eq('grade', change.grade)
+      .eq('class_number', change.classNo);
     if (subscriptionError) throw subscriptionError;
 
     const payload = JSON.stringify({ title, body: message, url, tag });
@@ -158,7 +179,14 @@ export default async function handler(req, res) {
       }
     }));
 
-    return res.status(200).json({ ok: true, sent, stale, total: subscriptions?.length || 0 });
+    return res.status(200).json({
+      ok: true,
+      changeId: change.changeId,
+      action: change.action,
+      sent,
+      stale,
+      total: subscriptions?.length || 0,
+    });
   } catch (error) {
     console.error('push send error', error);
     const message = String(error?.message || 'PUSH_SEND_FAILED');
