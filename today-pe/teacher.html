@@ -36,11 +36,48 @@
             </div>
           </section>
 
+          <section class="page-card weather-card">
+            <div class="section-heading teacher-heading">
+              <div>
+                <span class="eyebrow">학교 위치 기준</span>
+                <h3>오늘 날씨</h3>
+              </div>
+              <button id="refreshWeatherButton" class="ghost-button" type="button">새로고침</button>
+            </div>
+            <p id="weatherStatus" class="status-text">학교 위치와 날씨를 불러오는 중입니다…</p>
+            <div id="weatherSummary" class="weather-summary hidden">
+              <div class="weather-now">
+                <span id="weatherIcon" class="weather-icon">🌡️</span>
+                <div>
+                  <strong id="weatherTemp">--℃</strong>
+                  <span id="weatherDescription">날씨</span>
+                </div>
+              </div>
+              <div class="weather-stats">
+                <div><small>최고 / 최저</small><strong id="weatherHighLow">--</strong></div>
+                <div><small>최대 강수확률</small><strong id="weatherRainMax">--</strong></div>
+              </div>
+            </div>
+            <small id="weatherSource" class="data-source"></small>
+          </section>
+
           <section class="page-card">
             <div class="section-heading teacher-heading">
               <div>
-                <span class="eyebrow">오늘</span>
-                <h3>학교 전체 체육수업</h3>
+                <span class="eyebrow">NEIS 자동 조회</span>
+                <h3>오늘 체육 시간표</h3>
+              </div>
+              <button id="refreshNeisButton" class="ghost-button" type="button">다시 불러오기</button>
+            </div>
+            <p id="neisTimetableStatus" class="status-text">오늘 시간표를 불러오는 중입니다…</p>
+            <div id="neisPeSchedule" class="neis-schedule"></div>
+          </section>
+
+          <section class="page-card">
+            <div class="section-heading teacher-heading">
+              <div>
+                <span class="eyebrow">교사 입력</span>
+                <h3>등록된 수업 안내</h3>
               </div>
               <button id="newLessonButton" class="primary-button" type="button">+ 수업 등록</button>
             </div>
@@ -54,8 +91,8 @@
           </section>
 
           <section class="page-card subtle-card">
-            <strong>다음 구현</strong>
-            <p>학교 위치 기반 현재/시간대별 날씨와 NEIS 시간표 자동 조회를 이 대시보드 상단에 연결할 예정입니다.</p>
+            <strong>데이터 안내</strong>
+            <p>학교·시간표는 NEIS, 위치 검색은 OpenStreetMap Nominatim, 날씨는 Open-Meteo 데이터를 사용합니다. NEIS 인증키가 연결되지 않은 개발 모드에서는 시간표가 최대 5건만 반환되어 체육수업 일부가 빠질 수 있습니다.</p>
           </section>
         </div>
       </section>
