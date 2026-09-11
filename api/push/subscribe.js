@@ -19,10 +19,84 @@ function normalizeBody(req) {
 function validEndpoint(value) {
   try {
     const url = new URL(value);
-    return url.protocol === 'https:';
+    return url.protocol === 'https:' && String(value).length <= 2048;
   } catch {
     return false;
   }
+}
+
+function validOfficeCode(value) {
+  return /^[A-Z0-9]{2,20}$/i.test(String(value || ''));
+}
+
+function validSchoolCode(value) {
+  return /^\d{5,20}$/.test(String(value || ''));
+}
+
+function validPushKey(value, min, max) {
+  const text = String(value || '');
+  return text.length >= min && text.length <= max && /^[A-Za-z0-9_-]+$/.test(text);
+}
+
+async function fetchCanonicalSchool(officeCode, schoolCode) {
+  const params = new URLSearchParams({
+    Type: 'json',
+    pIndex: '1',
+    pSize: '5',
+    ATPT_OFCDC_SC_CODE: officeCode,
+    SD_SCHUL_CODE: schoolCode,
+  });
+  if (process.env.NEIS_API_KEY) params.set('KEY', process.env.NEIS_API_KEY);
+
+  const response = await fetch(`https://open.neis.go.kr/hub/schoolInfo?${params.toString()}`);
+  if (!response.ok) throw new Error(`NEIS_HTTP_${response.status}`);
+  const data = await response.json();
+  const rows = data?.schoolInfo?.[1]?.row || [];
+  const row = rows.find((item) => (
+    String(item.ATPT_OFCDC_SC_CODE) === officeCode
+    && String(item.SD_SCHUL_CODE) === schoolCode
+  ));
+  if (!row) return null;
+
+  return {
+    neis_office_code: officeCode,
+    neis_school_code: schoolCode,
+    name: String(row.SCHUL_NM || '').slice(0, 200),
+    region: String(row.LCTN_SC_NM || '').slice(0, 100),
+    address: String(row.ORG_RDNMA || '').slice(0, 500),
+  };
+}
+
+async function resolveSchool(supabase, officeCode, schoolCode) {
+  const { data: existing, error: existingError } = await supabase
+    .from('schools')
+    .select('id')
+    .eq('neis_office_code', officeCode)
+    .eq('neis_school_code', schoolCode)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  let canonical = null;
+  try {
+    canonical = await fetchCanonicalSchool(officeCode, schoolCode);
+  } catch (error) {
+    console.warn('NEIS push school verification failed', error?.message || error);
+    if (existing) return existing;
+    throw new Error('SCHOOL_VERIFICATION_FAILED');
+  }
+
+  if (!canonical) {
+    if (existing) return existing;
+    throw new Error('INVALID_SCHOOL');
+  }
+
+  const { data: schoolRow, error: schoolError } = await supabase
+    .from('schools')
+    .upsert(canonical, { onConflict: 'neis_office_code,neis_school_code' })
+    .select('id')
+    .single();
+  if (schoolError) throw schoolError;
+  return schoolRow;
 }
 
 export default async function handler(req, res) {
@@ -37,8 +111,15 @@ export default async function handler(req, res) {
 
     if (req.method === 'DELETE') {
       const endpoint = String(body.endpoint || '');
-      if (!validEndpoint(endpoint)) return res.status(400).json({ error: 'INVALID_ENDPOINT' });
-      const { error } = await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+      const auth = String(body.auth || '');
+      if (!validEndpoint(endpoint) || !validPushKey(auth, 8, 256)) {
+        return res.status(400).json({ error: 'INVALID_SUBSCRIPTION' });
+      }
+      const { error } = await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('endpoint', endpoint)
+        .eq('auth', auth);
       if (error) throw error;
       return res.status(200).json({ ok: true });
     }
@@ -50,29 +131,20 @@ export default async function handler(req, res) {
     const auth = String(subscription.keys?.auth || '');
     const grade = Number(body.grade);
     const classNo = Number(body.classNo);
+    const officeCode = String(school.officeCode || '').trim();
+    const schoolCode = String(school.schoolCode || '').trim();
 
-    if (!school.officeCode || !school.schoolCode || !school.name) {
+    if (!validOfficeCode(officeCode) || !validSchoolCode(schoolCode)) {
       return res.status(400).json({ error: 'INVALID_SCHOOL' });
     }
     if (!Number.isInteger(grade) || grade < 1 || grade > 6 || !Number.isInteger(classNo) || classNo < 1 || classNo > 50) {
       return res.status(400).json({ error: 'INVALID_CLASS' });
     }
-    if (!validEndpoint(endpoint) || p256dh.length < 20 || auth.length < 8) {
+    if (!validEndpoint(endpoint) || !validPushKey(p256dh, 40, 256) || !validPushKey(auth, 8, 256)) {
       return res.status(400).json({ error: 'INVALID_SUBSCRIPTION' });
     }
 
-    const { data: schoolRow, error: schoolError } = await supabase
-      .from('schools')
-      .upsert({
-        neis_office_code: String(school.officeCode),
-        neis_school_code: String(school.schoolCode),
-        name: String(school.name),
-        region: String(school.region || ''),
-        address: String(school.address || ''),
-      }, { onConflict: 'neis_office_code,neis_school_code' })
-      .select('id')
-      .single();
-    if (schoolError) throw schoolError;
+    const schoolRow = await resolveSchool(supabase, officeCode, schoolCode);
 
     const { error: subscriptionError } = await supabase
       .from('push_subscriptions')
@@ -91,7 +163,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error('push subscribe error', error);
-    const status = String(error?.message || '').includes('NOT_CONFIGURED') ? 503 : 500;
-    return res.status(status).json({ error: error?.message || 'PUSH_SUBSCRIBE_FAILED' });
+    const message = String(error?.message || 'PUSH_SUBSCRIBE_FAILED');
+    let status = 500;
+    if (message.includes('NOT_CONFIGURED')) status = 503;
+    else if (message === 'INVALID_SCHOOL') status = 400;
+    else if (message === 'SCHOOL_VERIFICATION_FAILED') status = 502;
+    return res.status(status).json({ error: message });
   }
 }
