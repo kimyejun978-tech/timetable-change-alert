@@ -9,20 +9,25 @@ on:
       - main
     paths:
       - 'today-pe/**'
+      - 'api/**'
+      - 'package.json'
       - '.github/workflows/oneul-pe-validate.yml'
   workflow_dispatch:
 
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install timetable proxy dependency
+        run: npm install --ignore-scripts --no-package-lock
+
       - name: JavaScript syntax check
         run: |
-          for file in today-pe/*.js; do
+          for file in today-pe/*.js api/*.js; do
             echo "checking $file"
             node --check "$file"
           done
@@ -44,16 +49,10 @@ jobs:
               def __init__(self):
                   super().__init__()
                   self.ids = []
-                  self.links = []
-                  self.scripts = []
               def handle_starttag(self, tag, attrs):
                   attrs = dict(attrs)
                   if 'id' in attrs:
                       self.ids.append(attrs['id'])
-                  if tag == 'a' and attrs.get('href'):
-                      self.links.append(attrs['href'])
-                  if tag == 'script' and attrs.get('src'):
-                      self.scripts.append(attrs['src'])
 
           for html_path, js_path in pairs:
               html = Path(html_path).read_text(encoding='utf-8')
@@ -86,6 +85,9 @@ jobs:
               'today-pe/teacher.js',
               'today-pe/shared.js',
               'today-pe/style.css',
+              'today-pe/teacher-extra.css',
+              'api/timetable.js',
+              'package.json',
           ]
           for filename in required:
               if not Path(filename).is_file():
@@ -100,6 +102,15 @@ jobs:
           grep -q "sessionStorage" today-pe/teacher-login.js
           echo 'OK: teacher portal session guard is wired'
 
+      - name: Check timetable provider priority
+        run: |
+          grep -q "fromComcigan" api/timetable.js
+          grep -q "fromNeis" api/timetable.js
+          grep -q "await fromComcigan" api/timetable.js
+          grep -q "await fromNeis" api/timetable.js
+          grep -q "/api/timetable" today-pe/teacher.js
+          echo 'OK: Comcigan primary -> NEIS fallback path is wired'
+
       - name: Serve static site and smoke test
         run: |
           python3 -m http.server 4173 --directory . >/tmp/oneul-pe-http.log 2>&1 &
@@ -111,7 +122,19 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:4173/today-pe/shared.js | grep -q 'schoolInfo'
           curl --fail --silent http://127.0.0.1:4173/today-pe/style.css >/dev/null
+          curl --fail --silent http://127.0.0.1:4173/today-pe/teacher-extra.css >/dev/null
           echo 'OK: split portal static smoke test passed'
+
+      - name: Check live Comcigan school search
+        continue-on-error: true
+        run: |
+          node --input-type=module - <<'NODE'
+          import Comcigan from 'parse-comcigan';
+          const schools = await Comcigan.search('대덕소프트웨어마이스터고');
+          console.log('Comcigan schools:', schools.length);
+          console.log(schools.slice(0, 3));
+          if (!schools.length) process.exitCode = 1;
+          NODE
 
       - name: Check NEIS school search response
         continue-on-error: true
@@ -124,7 +147,7 @@ jobs:
           query = urllib.parse.urlencode({
               'Type': 'json',
               'pIndex': '1',
-              'pSize': '30',
+              'pSize': '5',
               'SCHUL_NM': '대덕소프트웨어마이스터고',
           })
           url = 'https://open.neis.go.kr/hub/schoolInfo?' + query
