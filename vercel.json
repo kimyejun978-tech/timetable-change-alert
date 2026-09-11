@@ -1,9 +1,9 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/today-pe/index.html" },
-    { "source": "/student", "destination": "/today-pe/student.html" },
-    { "source": "/teacher", "destination": "/today-pe/teacher.html" },
-    { "source": "/teacher/login", "destination": "/today-pe/teacher-login.html" }
+  "redirects": [
+    { "source": "/", "destination": "/today-pe/index.html", "permanent": false },
+    { "source": "/student", "destination": "/today-pe/student.html", "permanent": false },
+    { "source": "/teacher", "destination": "/today-pe/teacher.html", "permanent": false },
+    { "source": "/teacher/login", "destination": "/today-pe/teacher-login.html", "permanent": false }
   ],
   "headers": [
     {
