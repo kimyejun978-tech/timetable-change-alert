@@ -65,7 +65,7 @@ begin
       lesson_id, school_id, lesson_date, period, grade, class_number,
       change_type, changed_by, changed_by_name, before_data, after_data
     ) values (
-      old.id, old.school_id, old.lesson_date, old.period, old.grade, old.class_number,
+      null, old.school_id, old.lesson_date, old.period, old.grade, old.class_number,
       'delete', v_user, coalesce(v_name, ''), to_jsonb(old), null
     );
     return old;
@@ -280,6 +280,11 @@ as $$
     and c.created_at >= p_from
     and c.change_type in ('create', 'update', 'delete');
 $$;
+
+revoke all on function public.get_school_teachers() from public, anon, authenticated;
+revoke all on function public.set_lesson_teachers(uuid, uuid[]) from public, anon, authenticated;
+revoke all on function public.get_lesson_history(uuid) from public, anon, authenticated;
+revoke all on function public.get_student_notifications(text,text,integer,integer,timestamptz) from public, anon, authenticated;
 
 grant execute on function public.get_school_teachers() to authenticated;
 grant execute on function public.set_lesson_teachers(uuid, uuid[]) to authenticated;
