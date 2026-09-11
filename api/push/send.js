@@ -30,6 +30,44 @@ function bearerToken(req) {
   return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
 }
 
+function validClass(grade, classNo) {
+  return Number.isInteger(grade) && grade >= 1 && grade <= 6
+    && Number.isInteger(classNo) && classNo >= 1 && classNo <= 50;
+}
+
+async function resolveDeletedLesson(supabase, teacherSchoolId, lessonId) {
+  if (!lessonId) return null;
+
+  const { data: existing } = await supabase
+    .from('pe_lessons')
+    .select('id,school_id,grade,class_number,period,activity,location')
+    .eq('id', lessonId)
+    .eq('school_id', teacherSchoolId)
+    .maybeSingle();
+  if (existing) return existing;
+
+  const { data: history, error } = await supabase
+    .from('lesson_changes')
+    .select('school_id,grade,class_number,period,before_data,created_at')
+    .eq('school_id', teacherSchoolId)
+    .eq('change_type', 'delete')
+    .eq('before_data->>id', lessonId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!history) return null;
+
+  return {
+    school_id: history.school_id,
+    grade: history.grade,
+    class_number: history.class_number,
+    period: history.period,
+    activity: history.before_data?.activity || '체육',
+    location: history.before_data?.location || '',
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -53,14 +91,41 @@ export default async function handler(req, res) {
     if (teacherError || !teacher?.verified) return res.status(403).json({ error: 'TEACHER_NOT_VERIFIED' });
 
     const body = normalizeBody(req);
-    const grade = Number(body.grade);
-    const classNo = Number(body.classNo);
-    if (!Number.isInteger(grade) || grade < 1 || grade > 6 || !Number.isInteger(classNo) || classNo < 1 || classNo > 50) {
+    const action = ['create', 'update', 'delete'].includes(body.action) ? body.action : 'update';
+    let grade = Number(body.grade);
+    let classNo = Number(body.classNo);
+    let period = Number(body.period || 0);
+    let activity = String(body.activity || '체육');
+    let location = String(body.location || '');
+
+    if (!validClass(grade, classNo) && body.lessonId) {
+      const lesson = await resolveDeletedLesson(supabase, teacher.school_id, String(body.lessonId));
+      if (lesson) {
+        grade = Number(lesson.grade);
+        classNo = Number(lesson.class_number);
+        period = Number(lesson.period || 0);
+        activity = String(lesson.activity || '체육');
+        location = String(lesson.location || '');
+      }
+    }
+
+    if (!validClass(grade, classNo)) {
       return res.status(400).json({ error: 'INVALID_CLASS' });
     }
 
-    const title = String(body.title || '오늘체육').slice(0, 80);
-    const message = String(body.body || '체육수업 안내가 변경되었습니다.').slice(0, 240);
+    const defaultTitles = {
+      create: '체육 안내가 등록됐어요',
+      update: '체육 안내가 변경됐어요',
+      delete: '체육 안내가 취소됐어요',
+    };
+    const generatedBody = [
+      `${grade}-${classNo}`,
+      period ? `${period}교시` : '',
+      activity,
+      location,
+    ].filter(Boolean).join(' · ');
+    const title = String(body.title || defaultTitles[action]).slice(0, 80);
+    const message = String(body.body || generatedBody || '체육수업 안내가 변경되었습니다.').slice(0, 240);
     const url = String(body.url || './student.html');
     const tag = String(body.tag || `oneul-pe-${grade}-${classNo}`).slice(0, 100);
 
