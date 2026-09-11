@@ -22,6 +22,7 @@
 - 학생 자동 갱신 + 오프라인 fallback
 - Supabase Auth 교사 로그인
 - 승인 대기 / 학교 관리자 승인 / 최초 관리자 운영자 승인
+- 교사 계정의 소속 학교는 가입 후 클라이언트에서 변경 불가
 - 학교 관리자의 승인된 일반 교사 권한 회수
 - 학교 관리자 계정은 다른 학교 관리자가 회수할 수 없음
 - 권한 회수 후 열린 교사 탭 주기적 세션 재검증
@@ -68,6 +69,7 @@
 - Supabase Auth
 - verified=true 이후 교사 포털 접근
 - 담당/공동담당 수업 관리
+- 최초 등록 학교를 스스로 변경할 수 없음
 
 학교 관리자
 - 같은 학교 승인 대기 교사 승인
@@ -93,6 +95,18 @@ approvalRoute=operator     → 아직 학교 관리자 없음, 운영자 승인 
 approvalRoute=school_admin → 기존 학교 관리자 승인 필요
 approvalRoute=approved     → 승인 완료
 ```
+
+### 학교 소속 잠금
+
+`register_teacher_profile`은 최초 가입 때만 학교를 저장합니다. 기존 계정이 다른 학교를 선택하면:
+
+```text
+SCHOOL_CHANGE_REQUIRES_OPERATOR
+```
+
+를 반환하고 기존 `school_id`, `role`, `verified`는 유지합니다. 같은 학교로 다시 로그인할 때는 표시 이름만 갱신됩니다. 실제 전학/전근/잘못 등록된 학교 정정은 운영자 절차로 처리합니다.
+
+로컬 데모도 `teacher-school-lock.js`가 같은 규칙을 적용해 브라우저 E2E에서 회귀를 잡습니다.
 
 ### 교사 권한 회수
 
@@ -152,6 +166,7 @@ revoke_teacher_access(uuid)
 012_teacher_approval_context
 013_teacher_access_revocation
 014_protect_school_admin_revocation
+015_lock_teacher_school_membership
 ```
 
 새 프로젝트 적용 순서:
@@ -171,6 +186,7 @@ revoke_teacher_access(uuid)
 12. supabase/012_teacher_approval_context.sql
 13. supabase/013_teacher_access_revocation.sql
 14. supabase/014_protect_school_admin_revocation.sql
+15. supabase/015_lock_teacher_school_membership.sql
 ```
 
 주요 테이블:
@@ -233,7 +249,7 @@ GET /api/health
 - `student-privacy.js`
 - `student-resilience.js`
 
-학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다. 서비스워커 캐시는 보안 어댑터까지 포함한 `oneul-pe-v6` 정적 자산 세트를 사용합니다.
+학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다. 서비스워커 캐시는 최신 보안 어댑터까지 포함한 `oneul-pe-v7` 정적 자산 세트를 사용합니다.
 
 ## 자동 검증
 
@@ -244,6 +260,7 @@ JS 문법
 HTML ↔ JS 연결
 Auth / RLS / 최초 관리자 bootstrap
 교사 승인 경로
+교사 학교 소속 잠금
 교사 권한 회수 / 관리자 보호 / 열린 세션 재검증
 공동 담당 / 변경 이력 / 학생 알림
 컴시간 교사명 별칭
@@ -256,7 +273,7 @@ Playwright Chromium E2E
 실제 컴시간/NEIS 학교 검색
 ```
 
-Playwright는 `/api/public-config`를 빈 설정으로 mock해 로컬 데모 모드로 실행하므로 실제 Supabase DB를 오염시키지 않습니다. 현재 E2E에는 두 번째 교사 가입 → 승인 → 로그인 → 권한 회수 → 열린 탭 자동 로그아웃 흐름도 포함됩니다.
+Playwright는 `/api/public-config`를 빈 설정으로 mock해 로컬 데모 모드로 실행하므로 실제 Supabase DB를 오염시키지 않습니다. E2E에는 같은 계정의 타 학교 소속 변경 차단, 두 번째 교사 승인/회수, 열린 탭 자동 로그아웃, 관리자 계정 보호까지 포함됩니다.
 
 ## 남은 외부 작업
 
