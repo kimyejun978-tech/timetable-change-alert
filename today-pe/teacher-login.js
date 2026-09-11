@@ -119,6 +119,14 @@ loginForm.addEventListener('submit', async (event) => {
     window.location.replace('./teacher.html');
   } catch (error) {
     console.error(error);
+    const message = String(error?.message || '');
+    if (message.includes('SCHOOL_CHANGE_REQUIRES_OPERATOR')) {
+      try { await Backend.logoutTeacher(); } catch {}
+      const copy = '이 교사 계정은 이미 다른 학교에 등록되어 있습니다. 학교 변경·정정은 운영자 확인이 필요합니다.';
+      showToast(copy);
+      document.getElementById('backendModeDescription').textContent = copy;
+      return;
+    }
     showToast(error?.message || '교사 인증에 실패했습니다.');
   } finally {
     loginButton.disabled = false;
