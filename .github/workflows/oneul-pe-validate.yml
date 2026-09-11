@@ -84,8 +84,11 @@ jobs:
               'today-pe/teacher.html',
               'today-pe/teacher.js',
               'today-pe/shared.js',
+              'today-pe/backend.js',
+              'today-pe/config.js',
               'today-pe/style.css',
               'today-pe/teacher-extra.css',
+              'today-pe/supabase/schema.sql',
               'api/timetable.js',
               'package.json',
           ]
@@ -94,13 +97,17 @@ jobs:
                   raise SystemExit(f'Missing required file: {filename}')
           PY
 
-      - name: Check teacher access guard exists
+      - name: Check teacher access and RLS architecture
         run: |
-          grep -q "teacherSession" today-pe/teacher.js
-          grep -q "teacher-login.html" today-pe/teacher.js
-          grep -q "sessionStorage" today-pe/teacher.js
-          grep -q "sessionStorage" today-pe/teacher-login.js
-          echo 'OK: teacher portal session guard is wired'
+          grep -q "getTeacherSession" today-pe/teacher.js
+          grep -q "OneulPEBackend" today-pe/teacher.js
+          grep -q "OneulPEBackend" today-pe/student.js
+          grep -q "Supabase 서버 인증" today-pe/teacher-login.js
+          grep -q "register_teacher_profile" today-pe/supabase/schema.sql
+          grep -q "get_student_lessons" today-pe/supabase/schema.sql
+          grep -q "TEACHER_NOT_VERIFIED" today-pe/supabase/schema.sql
+          grep -q "revoke all on public.pe_lessons from anon" today-pe/supabase/schema.sql
+          echo 'OK: teacher auth + student read-only RPC architecture is wired'
 
       - name: Check timetable provider priority
         run: |
@@ -121,6 +128,8 @@ jobs:
             curl --fail --silent "http://127.0.0.1:4173/today-pe/$page" | grep -q '오늘체육'
           done
           curl --fail --silent http://127.0.0.1:4173/today-pe/shared.js | grep -q 'schoolInfo'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/backend.js | grep -q 'OneulPEBackend'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/config.js | grep -q 'SUPABASE_URL'
           curl --fail --silent http://127.0.0.1:4173/today-pe/style.css >/dev/null
           curl --fail --silent http://127.0.0.1:4173/today-pe/teacher-extra.css >/dev/null
           echo 'OK: split portal static smoke test passed'
