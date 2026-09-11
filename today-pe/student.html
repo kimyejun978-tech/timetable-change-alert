@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#2563eb" />
   <title>오늘체육 · 학생</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="./student-extra.css" />
 </head>
@@ -13,6 +15,8 @@
     <header class="topbar">
       <a class="brand-button brand-link" href="./student.html">오늘체육</a>
       <div class="topbar-actions">
+        <button id="installAppButton" class="ghost-button small hidden" type="button">앱 설치</button>
+        <button id="enableNotificationsButton" class="ghost-button small" type="button">알림 켜기</button>
         <span id="studentSchoolBadge" class="school-badge"></span>
         <button id="studentResetButton" class="ghost-button small" type="button">학교/반 변경</button>
       </div>
@@ -97,6 +101,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="./shared.js" defer></script>
   <script src="./backend.js" defer></script>
+  <script src="./pwa.js" defer></script>
   <script src="./student.js" defer></script>
 </body>
 </html>
