@@ -83,6 +83,7 @@ jobs:
               'today-pe/index.html',
               'today-pe/student.html',
               'today-pe/student.js',
+              'today-pe/student-privacy.js',
               'today-pe/student-extra.css',
               'today-pe/teacher-login.html',
               'today-pe/teacher-login.js',
@@ -109,6 +110,7 @@ jobs:
               'today-pe/supabase/008_performance_hardening.sql',
               'today-pe/supabase/009_teacher_timetable_aliases.sql',
               'today-pe/supabase/010_secure_initial_admin_bootstrap.sql',
+              'today-pe/supabase/011_student_privacy_minimization.sql',
               'api/timetable.js',
               'api/schools.js',
               'api/public-config.js',
@@ -164,6 +166,18 @@ jobs:
           grep -q "set_my_timetable_aliases" today-pe/teacher-dashboard-controls.js
           echo 'OK: timetable teacher alias mapping is wired'
 
+      - name: Check student privacy minimization
+        run: |
+          grep -q "student-privacy.js" today-pe/student.html
+          grep -q "teacherIds: \[\]" today-pe/student-privacy.js
+          grep -q "changedByName: ''" today-pe/student-privacy.js
+          grep -q "student-privacy.js" today-pe/sw.js
+          grep -q "학생에게 필요한 최소 정보만" today-pe/supabase/011_student_privacy_minimization.sql
+          if grep -q "'teacher_name'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
+          if grep -q "'teacher_id'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
+          if grep -q "'changedByName'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
+          echo 'OK: student-facing teacher identity is minimized before caching and at RPC boundary'
+
       - name: Check PWA and Web Push wiring
         run: |
           grep -q "serviceWorker.register" today-pe/pwa.js
@@ -212,6 +226,7 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:4173/today-pe/shared.js | grep -q '/api/schools'
           curl --fail --silent http://127.0.0.1:4173/today-pe/backend.js | grep -q 'OneulPEBackend'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/student-privacy.js | grep -q 'anonymizeLesson'
           curl --fail --silent http://127.0.0.1:4173/today-pe/config.js | grep -q 'SUPABASE_URL'
           curl --fail --silent http://127.0.0.1:4173/today-pe/pwa.js | grep -q 'OneulPEPWA'
           curl --fail --silent http://127.0.0.1:4173/today-pe/push-client.js | grep -q 'OneulPEPush'
