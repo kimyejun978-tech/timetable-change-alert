@@ -38,7 +38,21 @@ function weatherPayload() {
   };
 }
 
-test('학생-교사 로컬 데모 핵심 흐름이 브라우저에서 이어진다', async ({ browser }) => {
+async function chooseSchool(page, inputSelector, formSelector) {
+  await page.locator(inputSelector).fill('대덕소프트웨어마이스터고');
+  await page.locator(`${formSelector} button[type="submit"]`).click();
+  await expect(page.locator('.school-item')).toHaveCount(1);
+  await page.locator('.school-item').click();
+}
+
+async function fillTeacherLogin(page, { name, email, password }) {
+  await page.locator('#teacherName').fill(name);
+  await page.locator('#teacherEmail').fill(email);
+  await page.locator('#teacherPassword').fill(password);
+  await page.getByRole('button', { name: '교사 화면 들어가기' }).click();
+}
+
+test('학생-교사 핵심 흐름과 교사 승인/회수가 브라우저에서 이어진다', async ({ browser }) => {
   const context = await browser.newContext({ timezoneId: 'Asia/Seoul' });
 
   await context.route('**/api/public-config', (route) => route.fulfill({
@@ -96,10 +110,7 @@ test('학생-교사 로컬 데모 핵심 흐름이 브라우저에서 이어진�
   await student.evaluate(() => localStorage.clear());
   await student.reload();
 
-  await student.locator('#studentSchoolSearchInput').fill('대덕소프트웨어마이스터고');
-  await student.locator('#studentSchoolSearchForm button[type="submit"]').click();
-  await expect(student.locator('.school-item')).toHaveCount(1);
-  await student.locator('.school-item').click();
+  await chooseSchool(student, '#studentSchoolSearchInput', '#studentSchoolSearchForm');
   await student.locator('#studentGrade').selectOption('1');
   await student.locator('#studentClassNo').fill('2');
   await student.getByRole('button', { name: '학생 화면 시작' }).click();
@@ -109,13 +120,12 @@ test('학생-교사 로컬 데모 핵심 흐름이 브라우저에서 이어진�
 
   const teacher = await context.newPage();
   await teacher.goto('/today-pe/teacher-login.html');
-  await teacher.locator('#teacherSchoolSearchInput').fill('대덕소프트웨어마이스터고');
-  await teacher.locator('#teacherSchoolSearchForm button[type="submit"]').click();
-  await teacher.locator('.school-item').click();
-  await teacher.locator('#teacherName').fill('김체육');
-  await teacher.locator('#teacherEmail').fill('pe@example.com');
-  await teacher.locator('#teacherPassword').fill('testpass1234');
-  await teacher.getByRole('button', { name: '교사 화면 들어가기' }).click();
+  await chooseSchool(teacher, '#teacherSchoolSearchInput', '#teacherSchoolSearchForm');
+  await fillTeacherLogin(teacher, {
+    name: '김체육',
+    email: 'pe@example.com',
+    password: 'testpass1234',
+  });
 
   await expect(teacher).toHaveURL(/teacher\.html$/);
   await expect(teacher.locator('#teacherIdentity')).toContainText('김체육');
@@ -136,6 +146,8 @@ test('학생-교사 로컬 데모 핵심 흐름이 브라우저에서 이어진�
   await student.locator('#refreshStudentButton').click();
   await expect(student.locator('#todayLessons')).toContainText('축구');
   await expect(student.locator('#todayLessons')).toContainText('운동장');
+  await expect(student.locator('#todayLessons')).toContainText('체육교사');
+  await expect(student.locator('#todayLessons')).not.toContainText('김체육');
 
   await teacher.locator('#teacherLessonList [data-edit-id]').first().click();
   await teacher.locator('#locationChoices [data-value="체육관"]').click();
@@ -145,7 +157,48 @@ test('학생-교사 로컬 데모 핵심 흐름이 브라우저에서 이어진�
   await student.locator('#refreshStudentButton').click();
   await expect(student.locator('#todayLessons')).toContainText('체육관');
   await expect(student.locator('#studentNotificationList')).toContainText('체육 안내');
+  await expect(student.locator('#studentNotificationList')).not.toContainText('김체육');
   await expect(student.locator('#studentUnreadBadge')).not.toHaveClass(/hidden/);
+
+  // 두 번째 교사는 자동 승인되지 않고 학교 관리자 승인을 기다린다.
+  const secondTeacher = await context.newPage();
+  await secondTeacher.goto('/today-pe/teacher-login.html');
+  await chooseSchool(secondTeacher, '#teacherSchoolSearchInput', '#teacherSchoolSearchForm');
+  await fillTeacherLogin(secondTeacher, {
+    name: '이체육',
+    email: 'pe2@example.com',
+    password: 'testpass5678',
+  });
+
+  await expect(secondTeacher).toHaveURL(/teacher-login\.html$/);
+  await expect(secondTeacher.locator('#backendModeDescription')).toContainText('승인 대기');
+
+  // 첫 번째 학교 관리자가 두 번째 교사를 승인한다.
+  await teacher.locator('#refreshPendingTeachersButton').click();
+  await expect(teacher.locator('#pendingTeacherList')).toContainText('이체육');
+  await teacher.locator('#pendingTeacherList [data-approve-teacher]').click();
+  await expect(teacher.locator('#pendingTeacherList')).not.toContainText('이체육');
+
+  // 승인 후 같은 자격증명으로 로그인하면 일반 체육교사로 진입한다.
+  await fillTeacherLogin(secondTeacher, {
+    name: '이체육',
+    email: 'pe2@example.com',
+    password: 'testpass5678',
+  });
+  await expect(secondTeacher).toHaveURL(/teacher\.html$/);
+  await expect(secondTeacher.locator('#teacherRoleLabel')).toContainText('체육교사');
+
+  // 관리자가 승인된 교사 목록을 새로 불러온 뒤 접근 권한을 회수한다.
+  await teacher.locator('[data-access-refresh]').click();
+  const approvedList = teacher.locator('[data-approved-teacher-list]');
+  await expect(approvedList).toContainText('이체육');
+  const secondRow = approvedList.locator('.teacher-lesson-item').filter({ hasText: '이체육' });
+  teacher.once('dialog', (dialog) => dialog.accept());
+  await secondRow.locator('[data-revoke-teacher]').click();
+  await expect(approvedList).not.toContainText('이체육');
+
+  // localStorage 변경 이벤트를 받은 열린 탭의 세션 가드가 자동 로그아웃시킨다.
+  await expect(secondTeacher).toHaveURL(/teacher-login\.html$/, { timeout: 5000 });
 
   await context.close();
 });
