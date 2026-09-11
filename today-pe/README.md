@@ -13,68 +13,57 @@
 → 학생: 자기 학교·학년·반 안내 확인
 ```
 
-교사 화면은 학교 위치 기반 날씨와 교시별 예보를 함께 보여주며, 야외수업의 강수 위험도 표시합니다.
-
-## 현재 구현
+## 구현 상태
 
 - 학생 / 교사 포털 완전 분리
-- 학생 로그인 없음, 학교·학년·반만 로컬 저장
-- 학생: 오늘 체육 / 주간 안내 / 최근 변경 알림
-- `오늘 체육 없음` / `체육 있음·안내 미등록` / `안내 등록됨` 구분
-- 약 90초 자동 갱신 + 재진입/온라인 복구 시 최신화
-- 오프라인 최근 저장본 fallback
-- 교사: Supabase Auth
-- 신규 교사 승인 대기
-- 여러 체육교사 및 공동 담당
-- 수업 등록 / 수정 / 삭제 / 여러 반 일괄 등록
-- 수업 변경 이력
+- 학생 로그인 없음, 학교·학년·반만 저장
+- 오늘 체육 / 주간 안내 / 최근 변경 알림
+- `체육 없음` / `체육 있음·안내 미등록` / `안내 등록됨` 구분
+- 학생 자동 갱신 + 오프라인 fallback
+- Supabase Auth 교사 로그인
+- 승인 대기 / 학교 관리자 승인 / 최초 관리자 운영자 승인
+- 여러 체육교사 + 공동 담당 + 변경 이력
 - 컴시간 담당교사 이름 별칭 매핑
-- 학교 위치 기반 현재 날씨 + 교시별 날씨
-- 우천 주의 필터
-- PWA 설치
-- Web Push 구독/발송 경로
+- 학교 위치 기반 현재 날씨 + 교시별 예보 + 우천 주의
 - Supabase Realtime
-- Playwright Chromium 학생↔교사 핵심 E2E
+- PWA / Web Push 경로
+- 학생 교사정보 최소화
+- Playwright Chromium 핵심 E2E
 
 ## 시간표
 
-`api/timetable.js`의 공급원 우선순위는 아래와 같습니다.
-
 ```text
 1. 컴시간알리미(parse-comcigan)
-2. NEIS 고등학교 시간표
+2. 실패 시 NEIS
 3. 정적 개발 환경에서는 브라우저 NEIS 직접 fallback
 ```
 
-교사 화면의 `현재 데이터` 배지로 어떤 공급원을 사용했는지 확인할 수 있습니다.
+교사 화면의 `현재 데이터` 배지에서 실제 공급원을 확인할 수 있습니다.
 
-### 컴시간 교사명 매핑
+### 컴시간 이름 매칭
 
-컴시간에 표시되는 담당교사명이 로그인 이름과 다르면 교사 화면의 **컴시간 이름 매칭 설정**에 별칭을 등록할 수 있습니다.
-
-예:
+컴시간 담당교사명이 로그인 이름과 다르면 **컴시간 이름 매칭 설정**에 별칭을 등록합니다.
 
 ```text
 로그인 이름: 김체육
 컴시간 표시: 김OO
-→ 별칭에 김OO 등록
-→ 내 시간표 필터에서 정상 인식
+→ 별칭: 김OO
+→ 내 시간표 필터 정상 인식
 ```
 
-같은 학교의 다른 교사가 이미 사용하는 별칭이나 다른 교사의 실제 이름과 겹치는 값은 등록할 수 없습니다.
+별칭은 본인만 관리할 수 있고, 같은 학교 다른 교사의 이름/별칭과 충돌할 수 없습니다.
 
 ## 권한 구조
 
 ```text
 학생
 - 로그인 없음
-- 학생용 읽기 RPC만 호출
-- 관리 테이블 직접 SELECT/INSERT/UPDATE/DELETE 불가
+- 학생 읽기 RPC만 호출
+- 관리 테이블 직접 접근 불가
 
 체육교사
-- Supabase Auth 로그인
-- verified=true가 되어야 교사 포털 사용 가능
-- 자기 학교 수업 조회
+- Supabase Auth
+- verified=true 이후 교사 포털 접근
 - 담당/공동담당 수업 관리
 
 학교 관리자
@@ -83,31 +72,36 @@
 
 최초 학교 관리자
 - 첫 가입자가 자동 관리자가 되지 않음
-- 모든 신규 교사는 우선 승인 대기
-- 운영자가 service-role 전용 RPC로 최초 관리자를 지정
+- 운영자가 service-role 전용 RPC로 지정
 ```
 
-최초 관리자 승격 RPC:
+최초 관리자 승격:
 
 ```text
 operator_promote_school_admin(uuid)
 ```
 
-이 함수는 `service_role`만 실행할 수 있습니다.
+승인 대기 교사는 `get_my_teacher_approval_context()`로 현재 승인 경로를 확인합니다.
+
+```text
+approvalRoute=operator     → 아직 학교 관리자 없음, 운영자 승인 필요
+approvalRoute=school_admin → 기존 학교 관리자 승인 필요
+approvalRoute=approved     → 승인 완료
+```
 
 ## 학생 개인정보 최소화
 
-학생에게 교사 개인 식별정보가 필요하지 않으므로 학생용 데이터 경계에서 제거합니다.
+학생에게 교사 개인 식별정보가 필요하지 않아 학생용 데이터 경계에서 제거합니다.
 
 - `get_student_lessons`: 교사 ID/이름 미반환
 - `get_student_notifications`: 변경 교사 이름 미반환
 - `student-privacy.js`: 로컬 데모 데이터도 익명화
-- 익명화 이후 `student-resilience.js`가 오프라인 캐시 저장
-- 학생 UI에는 개인 이름 대신 `체육교사`만 표시
+- 익명화 후 `student-resilience.js`가 오프라인 캐시 저장
+- 학생 UI는 일반 표현 `체육교사` 사용
 
-## Supabase
+## Supabase 마이그레이션
 
-실제 연결 프로젝트에 아래 마이그레이션이 적용되어 있습니다.
+실제 `oneul-pe` 프로젝트에 다음 마이그레이션이 적용되어 있습니다.
 
 ```text
 001_initial_schema
@@ -121,9 +115,10 @@ operator_promote_school_admin(uuid)
 009_teacher_timetable_aliases
 010_secure_initial_admin_bootstrap
 011_student_privacy_minimization
+012_teacher_approval_context
 ```
 
-새 프로젝트에 재적용할 때 저장소 파일 순서:
+새 프로젝트 적용 순서:
 
 ```text
 1. supabase/schema.sql
@@ -137,6 +132,7 @@ operator_promote_school_admin(uuid)
 9. supabase/009_teacher_timetable_aliases.sql
 10. supabase/010_secure_initial_admin_bootstrap.sql
 11. supabase/011_student_privacy_minimization.sql
+12. supabase/012_teacher_approval_context.sql
 ```
 
 주요 테이블:
@@ -155,7 +151,7 @@ teacher_timetable_aliases
 
 ## 배포
 
-저장소 루트에 `vercel.json`이 있으며 Root Directory는 **저장소 루트 `/`**여야 합니다.
+Vercel Root Directory는 **저장소 루트 `/`**여야 합니다. `today-pe` 폴더만 Root로 지정하면 `/api/*`와 `vercel.json`이 빠집니다.
 
 ```text
 /              → /today-pe/index.html
@@ -164,7 +160,7 @@ teacher_timetable_aliases
 /teacher/login → /today-pe/teacher-login.html
 ```
 
-### 공개 가능 설정
+공개 가능 설정:
 
 ```text
 SUPABASE_URL
@@ -172,9 +168,7 @@ SUPABASE_ANON_KEY 또는 publishable key
 VAPID_PUBLIC_KEY
 ```
 
-`today-pe/config.js`에는 브라우저 공개용 Supabase fallback만 둘 수 있습니다. `/api/public-config`는 Vercel 환경변수가 실제로 설정된 값만 override하므로 빈 환경변수가 fallback을 지우지 않습니다.
-
-### 서버 전용 비밀
+서버 전용 비밀:
 
 ```text
 SUPABASE_SERVICE_ROLE_KEY
@@ -183,88 +177,56 @@ VAPID_SUBJECT
 NEIS_API_KEY
 ```
 
-서버 비밀은 GitHub와 브라우저 코드에 넣지 않습니다.
+`/api/public-config`는 실제 환경변수가 존재할 때만 `config.js`의 공개 fallback을 override합니다.
 
-## 상태 확인
+상태 확인:
 
 ```text
 GET /api/health
 ```
 
-주요 필드:
-
-```text
-supabasePublic
-supabasePublicEnv
-supabasePublicFallback
-supabaseServer
-vapid
-neis
-readyForCore
-readyForPush
-```
-
-`readyForCore`는 학생 조회와 교사 Auth/RPC에 사용할 공개 Supabase 설정이 준비되면 true입니다. `readyForPush`는 service-role과 VAPID까지 준비되어야 true입니다.
+`readyForCore`는 Supabase 공개 설정이 준비되면 true, `readyForPush`는 service-role + VAPID까지 준비되어야 true입니다.
 
 ## PWA / 오프라인
 
 - `manifest.webmanifest`
 - `sw.js`
 - `pwa.js`
-- `student-resilience.js`
 - `student-privacy.js`
+- `student-resilience.js`
 
-학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간의 제한적 fallback 캐시를 사용합니다. 캐시에 저장되기 전에 교사 식별정보를 제거합니다.
-
-## Web Push
-
-```text
-학생 알림 켜기
-→ PushManager 구독
-→ POST /api/push/subscribe
-→ push_subscriptions 저장
-
-교사 수업 등록/수정/삭제
-→ 승인된 교사/학교 검증
-→ POST /api/push/send
-→ 해당 학교·학년·반 구독자만 Push
-```
-
-실제 Push 발송에는 Vercel의 `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PRIVATE_KEY` 등 서버 환경변수가 필요합니다.
+학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다.
 
 ## 자동 검증
 
-GitHub Actions `Validate 오늘체육 MVP`는 다음을 확인합니다.
+GitHub Actions는 아래를 확인합니다.
 
 ```text
-JavaScript 문법
-HTML ↔ JS id 연결
-교사 Auth / RLS / 최초 관리자 bootstrap
+JS 문법
+HTML ↔ JS 연결
+Auth / RLS / 최초 관리자 bootstrap
+교사 승인 경로
 공동 담당 / 변경 이력 / 학생 알림
-컴시간 교사명 별칭 매핑
+컴시간 교사명 별칭
 학생 개인정보 최소화
 PWA / Web Push wiring
-배포 config fallback / health API
+배포 config fallback / health
 컴시간 → NEIS 우선순위
-정적 smoke test
-Playwright Chromium UI E2E
-실제 컴시간 학교 검색
-실제 NEIS 학교 검색
+정적 smoke
+Playwright Chromium E2E
+실제 컴시간/NEIS 학교 검색
 ```
 
-Playwright는 실제 Supabase 프로젝트를 오염시키지 않도록 `/api/public-config`를 빈 설정으로 가로채 **로컬 데모 모드**에서 실행합니다.
+Playwright는 `/api/public-config`를 빈 설정으로 mock해 로컬 데모 모드로 실행하므로 실제 Supabase DB를 오염시키지 않습니다.
 
-## 현재 남은 외부 작업
-
-코드, 실제 Supabase DB, RLS/RPC, Realtime, CI는 연결된 상태입니다. 남은 핵심은 HTTPS 배포와 실기기 검증입니다.
+## 남은 외부 작업
 
 ```text
-1. Vercel 프로젝트 Import/배포
+1. Vercel 실제 Preview/Production 배포
 2. 서버 전용 환경변수 등록
-3. 최초 교사 가입 후 운영자 최초 관리자 승인
-4. 교사 기기에서 수업 등록
-5. 학생 기기에서 공유 확인
-6. Web Push 실수신 확인
+3. 최초 실제 교사 가입 → 운영자 최초 관리자 승인
+4. 교사/학생 서로 다른 기기에서 공유 검증
+5. 실제 Web Push 수신 검증
 ```
 
 자세한 순서는 `DEPLOY.md`를 참고합니다.
