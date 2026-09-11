@@ -79,6 +79,7 @@ jobs:
               'today-pe/index.html',
               'today-pe/student.html',
               'today-pe/student.js',
+              'today-pe/student-extra.css',
               'today-pe/teacher-login.html',
               'today-pe/teacher-login.js',
               'today-pe/teacher.html',
@@ -89,6 +90,8 @@ jobs:
               'today-pe/style.css',
               'today-pe/teacher-extra.css',
               'today-pe/supabase/schema.sql',
+              'today-pe/supabase/002_teacher_realtime.sql',
+              'today-pe/supabase/003_collaboration_history_notifications.sql',
               'api/timetable.js',
               'package.json',
           ]
@@ -108,6 +111,20 @@ jobs:
           grep -q "TEACHER_NOT_VERIFIED" today-pe/supabase/schema.sql
           grep -q "revoke all on public.pe_lessons from anon" today-pe/supabase/schema.sql
           echo 'OK: teacher auth + student read-only RPC architecture is wired'
+
+      - name: Check collaboration history and notifications
+        run: |
+          grep -q "listSchoolTeachers" today-pe/backend.js
+          grep -q "setLessonTeachers" today-pe/backend.js
+          grep -q "listLessonHistory" today-pe/backend.js
+          grep -q "listStudentNotifications" today-pe/backend.js
+          grep -q "lessonTeacherChoices" today-pe/teacher.html
+          grep -q "lessonHistoryList" today-pe/teacher.html
+          grep -q "studentNotificationList" today-pe/student.html
+          grep -q "create table if not exists public.lesson_changes" today-pe/supabase/003_collaboration_history_notifications.sql
+          grep -q "set_lesson_teachers" today-pe/supabase/003_collaboration_history_notifications.sql
+          grep -q "get_student_notifications" today-pe/supabase/003_collaboration_history_notifications.sql
+          echo 'OK: collaboration + history + student notifications are wired'
 
       - name: Check timetable provider priority
         run: |
@@ -132,6 +149,7 @@ jobs:
           curl --fail --silent http://127.0.0.1:4173/today-pe/config.js | grep -q 'SUPABASE_URL'
           curl --fail --silent http://127.0.0.1:4173/today-pe/style.css >/dev/null
           curl --fail --silent http://127.0.0.1:4173/today-pe/teacher-extra.css >/dev/null
+          curl --fail --silent http://127.0.0.1:4173/today-pe/student-extra.css >/dev/null
           echo 'OK: split portal static smoke test passed'
 
       - name: Check live Comcigan school search
