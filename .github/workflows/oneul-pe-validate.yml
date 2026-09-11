@@ -21,47 +21,84 @@ jobs:
         uses: actions/checkout@v4
 
       - name: JavaScript syntax check
-        run: node --check today-pe/app.js
+        run: |
+          for file in today-pe/*.js; do
+            echo "checking $file"
+            node --check "$file"
+          done
 
-      - name: Validate HTML and JS element references
+      - name: Validate portal HTML and JS references
         run: |
           python3 - <<'PY'
           from html.parser import HTMLParser
           import re
           from pathlib import Path
 
-          html = Path('today-pe/index.html').read_text(encoding='utf-8')
-          js = Path('today-pe/app.js').read_text(encoding='utf-8')
+          pairs = [
+              ('today-pe/student.html', 'today-pe/student.js'),
+              ('today-pe/teacher-login.html', 'today-pe/teacher-login.js'),
+              ('today-pe/teacher.html', 'today-pe/teacher.js'),
+          ]
 
           class Parser(HTMLParser):
               def __init__(self):
                   super().__init__()
                   self.ids = []
+                  self.links = []
+                  self.scripts = []
               def handle_starttag(self, tag, attrs):
                   attrs = dict(attrs)
                   if 'id' in attrs:
                       self.ids.append(attrs['id'])
+                  if tag == 'a' and attrs.get('href'):
+                      self.links.append(attrs['href'])
+                  if tag == 'script' and attrs.get('src'):
+                      self.scripts.append(attrs['src'])
 
-          parser = Parser()
-          parser.feed(html)
-          ids = parser.ids
-          duplicate_ids = sorted({x for x in ids if ids.count(x) > 1})
-          if duplicate_ids:
-              raise SystemExit(f'Duplicate HTML ids: {duplicate_ids}')
+          for html_path, js_path in pairs:
+              html = Path(html_path).read_text(encoding='utf-8')
+              js = Path(js_path).read_text(encoding='utf-8')
+              parser = Parser()
+              parser.feed(html)
+              duplicate_ids = sorted({x for x in parser.ids if parser.ids.count(x) > 1})
+              if duplicate_ids:
+                  raise SystemExit(f'{html_path}: duplicate ids: {duplicate_ids}')
 
-          id_set = set(ids)
-          refs = set(re.findall(r"getElementById\(['\"]([^'\"]+)['\"]\)", js))
-          missing = sorted(refs - id_set)
-          if missing:
-              raise SystemExit(f'JS references missing HTML ids: {missing}')
+              refs = set(re.findall(r"getElementById\(['\"]([^'\"]+)['\"]\)", js))
+              missing = sorted(refs - set(parser.ids))
+              if missing:
+                  raise SystemExit(f'{js_path}: missing HTML ids in {html_path}: {missing}')
 
-          required_files = ['today-pe/style.css', 'today-pe/app.js']
-          for filename in required_files:
+              print(f'OK: {html_path} -> {js_path}, {len(parser.ids)} ids / {len(refs)} refs')
+
+          index = Path('today-pe/index.html').read_text(encoding='utf-8')
+          for target in ('student.html', 'teacher-login.html'):
+              if target not in index:
+                  raise SystemExit(f'index.html missing portal link: {target}')
+
+          required = [
+              'today-pe/index.html',
+              'today-pe/student.html',
+              'today-pe/student.js',
+              'today-pe/teacher-login.html',
+              'today-pe/teacher-login.js',
+              'today-pe/teacher.html',
+              'today-pe/teacher.js',
+              'today-pe/shared.js',
+              'today-pe/style.css',
+          ]
+          for filename in required:
               if not Path(filename).is_file():
                   raise SystemExit(f'Missing required file: {filename}')
-
-          print(f'OK: {len(ids)} unique HTML ids, {len(refs)} JS id references resolved')
           PY
+
+      - name: Check teacher access guard exists
+        run: |
+          grep -q "teacherSession" today-pe/teacher.js
+          grep -q "teacher-login.html" today-pe/teacher.js
+          grep -q "sessionStorage" today-pe/teacher.js
+          grep -q "sessionStorage" today-pe/teacher-login.js
+          echo 'OK: teacher portal session guard is wired'
 
       - name: Serve static site and smoke test
         run: |
@@ -69,10 +106,12 @@ jobs:
           server_pid=$!
           trap 'kill $server_pid' EXIT
           sleep 1
-          curl --fail --silent http://127.0.0.1:4173/today-pe/index.html | grep -q '오늘체육'
-          curl --fail --silent http://127.0.0.1:4173/today-pe/app.js | grep -q 'schoolInfo'
+          for page in index.html student.html teacher-login.html teacher.html; do
+            curl --fail --silent "http://127.0.0.1:4173/today-pe/$page" | grep -q '오늘체육'
+          done
+          curl --fail --silent http://127.0.0.1:4173/today-pe/shared.js | grep -q 'schoolInfo'
           curl --fail --silent http://127.0.0.1:4173/today-pe/style.css >/dev/null
-          echo 'OK: static server smoke test passed'
+          echo 'OK: split portal static smoke test passed'
 
       - name: Check NEIS school search response
         continue-on-error: true
