@@ -61,6 +61,58 @@ window.OneulPEBackend = (() => {
     };
   }
 
+  function normalizeChange(row) {
+    return {
+      id: row.id,
+      lessonId: row.lessonId || row.lesson_id || null,
+      schoolCode: row.schoolCode || row.school_code || '',
+      lessonDate: row.lessonDate || row.lesson_date || '',
+      period: String(row.period || ''),
+      grade: String(row.grade || ''),
+      classNo: String(row.classNo ?? row.class_number ?? ''),
+      changeType: row.changeType || row.change_type || 'update',
+      changedByName: row.changedByName || row.changed_by_name || '',
+      beforeData: row.beforeData ?? row.before_data ?? null,
+      afterData: row.afterData ?? row.after_data ?? null,
+      createdAt: row.createdAt || row.created_at || new Date().toISOString(),
+    };
+  }
+
+  function localChangeSnapshot(lesson) {
+    if (!lesson) return null;
+    return {
+      id: lesson.id,
+      date: lesson.date,
+      period: lesson.period,
+      grade: lesson.grade,
+      classNo: lesson.classNo,
+      activity: lesson.activity,
+      location: lesson.location,
+      equipment: Array.isArray(lesson.equipment) ? [...lesson.equipment] : [],
+      notice: lesson.notice || '',
+      teacherIds: Array.isArray(lesson.teacherIds) ? [...lesson.teacherIds] : [],
+      teacherNames: Array.isArray(lesson.teacherNames) ? [...lesson.teacherNames] : [],
+    };
+  }
+
+  function appendLocalChange(changes, { profile, lesson, changeType, beforeData = null, afterData = null }) {
+    const source = afterData || beforeData || localChangeSnapshot(lesson) || {};
+    changes.push({
+      id: crypto.randomUUID(),
+      lessonId: lesson?.id || source.id || null,
+      schoolCode: profile.schoolCode,
+      lessonDate: source.date || '',
+      period: String(source.period || ''),
+      grade: String(source.grade || ''),
+      classNo: String(source.classNo || ''),
+      changeType,
+      changedByName: profile.name,
+      beforeData,
+      afterData,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
   async function remoteProfile() {
     const { data: authData } = await client.auth.getUser();
     if (!authData?.user) return null;
@@ -123,9 +175,7 @@ window.OneulPEBackend = (() => {
     if (authResult.error) {
       const signUp = await client.auth.signUp({ email, password });
       if (signUp.error) throw signUp.error;
-      if (!signUp.data.session) {
-        return { status: 'confirmation_required' };
-      }
+      if (!signUp.data.session) return { status: 'confirmation_required' };
       authResult = signUp;
     }
 
@@ -202,8 +252,12 @@ window.OneulPEBackend = (() => {
   async function saveTeacherLessons({ profile, editingId = null, classNos, base }) {
     if (!remoteEnabled) {
       let lessons = readJSON(localStorage, STORAGE.lessons, []);
+      const changes = readJSON(localStorage, STORAGE.lessonChanges, []);
       const getIds = (lesson) => lesson.teacherIds || (lesson.teacherId ? [lesson.teacherId] : []);
       const isMine = (lesson) => getIds(lesson).includes(profile.teacherId);
+      const originalEditing = editingId ? lessons.find((lesson) => lesson.id === editingId) : null;
+
+      if (editingId && (!originalEditing || !isMine(originalEditing))) throw new Error('수정 권한이 없습니다.');
 
       const conflicts = classNos.map((classNo) => lessons.find((lesson) => (
         lesson.id !== editingId
@@ -219,14 +273,10 @@ window.OneulPEBackend = (() => {
         throw new Error(`${foreignConflict.grade}-${foreignConflict.classNo} ${foreignConflict.period}교시는 ${names.join(', ')} 선생님이 이미 등록했습니다.`);
       }
 
-      if (editingId) {
-        const index = lessons.findIndex((lesson) => lesson.id === editingId);
-        if (index < 0 || !isMine(lessons[index])) throw new Error('수정 권한이 없습니다.');
-        lessons.splice(index, 1);
-      }
+      if (editingId) lessons = lessons.filter((lesson) => lesson.id !== editingId);
 
       const saved = [];
-      classNos.forEach((classNo) => {
+      classNos.forEach((classNo, index) => {
         const existingIndex = lessons.findIndex((lesson) => (
           lesson.schoolCode === profile.schoolCode
           && lesson.date === base.date
@@ -235,23 +285,42 @@ window.OneulPEBackend = (() => {
           && String(lesson.period) === String(base.period)
           && isMine(lesson)
         ));
+        const existing = existingIndex >= 0 ? lessons[existingIndex] : null;
+        const carryTeachers = index === 0 && originalEditing
+          ? {
+            teacherIds: originalEditing.teacherIds?.length ? originalEditing.teacherIds : [profile.teacherId],
+            teacherNames: originalEditing.teacherNames?.length ? originalEditing.teacherNames : [profile.name],
+          }
+          : {
+            teacherIds: existing?.teacherIds?.length ? existing.teacherIds : [profile.teacherId],
+            teacherNames: existing?.teacherNames?.length ? existing.teacherNames : [profile.name],
+          };
         const next = {
           ...base,
           classNo,
           schoolCode: profile.schoolCode,
           schoolName: profile.school.SCHUL_NM,
-          teacherIds: [profile.teacherId],
-          teacherNames: [profile.name],
-          teacherId: profile.teacherId,
-          teacherName: profile.name,
+          ...carryTeachers,
+          teacherId: carryTeachers.teacherIds[0],
+          teacherName: carryTeachers.teacherNames[0],
           updatedAt: new Date().toISOString(),
-          id: existingIndex >= 0 ? lessons[existingIndex].id : crypto.randomUUID(),
+          id: index === 0 && editingId ? editingId : (existing?.id || crypto.randomUUID()),
         };
+
+        const before = index === 0 && originalEditing ? originalEditing : existing;
         if (existingIndex >= 0) lessons[existingIndex] = next;
         else lessons.push(next);
+        appendLocalChange(changes, {
+          profile,
+          lesson: next,
+          changeType: before ? 'update' : 'create',
+          beforeData: localChangeSnapshot(before),
+          afterData: localChangeSnapshot(next),
+        });
         saved.push(next);
       });
       writeJSON(localStorage, STORAGE.lessons, lessons);
+      writeJSON(localStorage, STORAGE.lessonChanges, changes);
       return saved;
     }
 
@@ -283,11 +352,20 @@ window.OneulPEBackend = (() => {
   async function deleteTeacherLesson({ profile, lessonId }) {
     if (!remoteEnabled) {
       let lessons = readJSON(localStorage, STORAGE.lessons, []);
+      const changes = readJSON(localStorage, STORAGE.lessonChanges, []);
       const lesson = lessons.find((item) => item.id === lessonId);
       const ids = lesson?.teacherIds || (lesson?.teacherId ? [lesson.teacherId] : []);
       if (!lesson || !ids.includes(profile.teacherId)) throw new Error('삭제 권한이 없습니다.');
+      appendLocalChange(changes, {
+        profile,
+        lesson,
+        changeType: 'delete',
+        beforeData: localChangeSnapshot(lesson),
+        afterData: null,
+      });
       lessons = lessons.filter((item) => item.id !== lessonId);
       writeJSON(localStorage, STORAGE.lessons, lessons);
+      writeJSON(localStorage, STORAGE.lessonChanges, changes);
       return;
     }
     const { error } = await client.rpc('delete_pe_lesson', { p_id: lessonId });
@@ -320,6 +398,104 @@ window.OneulPEBackend = (() => {
     if (error) throw error;
   }
 
+  async function listSchoolTeachers(profile) {
+    if (!remoteEnabled) {
+      return readJSON(localStorage, STORAGE.teacherProfiles, [])
+        .filter((teacher) => teacher.schoolCode === profile.schoolCode && teacher.verified !== false)
+        .map((teacher) => ({
+          teacherId: teacher.id,
+          name: teacher.name,
+          role: teacher.role || 'teacher',
+          isMe: teacher.id === profile.teacherId,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    }
+    const { data, error } = await client.rpc('get_school_teachers');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async function setLessonTeachers({ profile, lessonId, teacherIds }) {
+    const uniqueIds = [...new Set(teacherIds)].filter(Boolean);
+    if (!uniqueIds.length) throw new Error('담당 교사를 한 명 이상 선택해주세요.');
+
+    if (!remoteEnabled) {
+      const lessons = readJSON(localStorage, STORAGE.lessons, []);
+      const profiles = readJSON(localStorage, STORAGE.teacherProfiles, []);
+      const changes = readJSON(localStorage, STORAGE.lessonChanges, []);
+      const lesson = lessons.find((item) => item.id === lessonId);
+      if (!lesson || lesson.schoolCode !== profile.schoolCode) throw new Error('수업을 찾지 못했습니다.');
+      const currentIds = lesson.teacherIds || (lesson.teacherId ? [lesson.teacherId] : []);
+      if (!currentIds.includes(profile.teacherId) && profile.role !== 'school_admin') throw new Error('수정 권한이 없습니다.');
+      if (profile.role !== 'school_admin' && !uniqueIds.includes(profile.teacherId)) throw new Error('본인은 공동 담당에서 제외할 수 없습니다.');
+
+      const selected = uniqueIds.map((id) => profiles.find((teacher) => (
+        teacher.id === id && teacher.schoolCode === profile.schoolCode && teacher.verified !== false
+      )));
+      if (selected.some((teacher) => !teacher)) throw new Error('선택한 교사 정보를 확인해주세요.');
+
+      const before = localChangeSnapshot(lesson);
+      lesson.teacherIds = uniqueIds;
+      lesson.teacherNames = selected.map((teacher) => teacher.name);
+      lesson.teacherId = uniqueIds[0];
+      lesson.teacherName = lesson.teacherNames[0];
+      lesson.updatedAt = new Date().toISOString();
+      appendLocalChange(changes, {
+        profile,
+        lesson,
+        changeType: 'teachers',
+        beforeData: before,
+        afterData: localChangeSnapshot(lesson),
+      });
+      writeJSON(localStorage, STORAGE.lessons, lessons);
+      writeJSON(localStorage, STORAGE.lessonChanges, changes);
+      return;
+    }
+
+    const { error } = await client.rpc('set_lesson_teachers', {
+      p_lesson_id: lessonId,
+      p_teacher_ids: uniqueIds,
+    });
+    if (error) throw error;
+  }
+
+  async function listLessonHistory({ profile, lessonId }) {
+    if (!remoteEnabled) {
+      return readJSON(localStorage, STORAGE.lessonChanges, [])
+        .filter((change) => change.schoolCode === profile.schoolCode && change.lessonId === lessonId)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(normalizeChange);
+    }
+    const { data, error } = await client.rpc('get_lesson_history', { p_lesson_id: lessonId });
+    if (error) throw error;
+    return (Array.isArray(data) ? data : []).map(normalizeChange);
+  }
+
+  async function listStudentNotifications({ school, grade, classNo, from }) {
+    if (!remoteEnabled) {
+      return readJSON(localStorage, STORAGE.lessonChanges, [])
+        .filter((change) => (
+          change.schoolCode === schoolCodeOf(school)
+          && String(change.grade) === String(grade)
+          && String(change.classNo) === String(classNo)
+          && new Date(change.createdAt) >= new Date(from)
+          && ['create', 'update', 'delete'].includes(change.changeType)
+        ))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(normalizeChange);
+    }
+
+    const { data, error } = await client.rpc('get_student_notifications', {
+      p_neis_office_code: school.ATPT_OFCDC_SC_CODE,
+      p_neis_school_code: school.SD_SCHUL_CODE,
+      p_grade: Number(grade),
+      p_class_number: Number(classNo),
+      p_from: from,
+    });
+    if (error) throw error;
+    return (Array.isArray(data) ? data : []).map(normalizeChange);
+  }
+
   function subscribeToLessons(onChange) {
     if (!remoteEnabled) return () => {};
     const channel = client
@@ -341,6 +517,10 @@ window.OneulPEBackend = (() => {
     deleteTeacherLesson,
     listPendingTeachers,
     approveTeacher,
+    listSchoolTeachers,
+    setLessonTeachers,
+    listLessonHistory,
+    listStudentNotifications,
     subscribeToLessons,
   };
 })();
