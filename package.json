@@ -1,11 +1,17 @@
 {
   "name": "oneul-pe-web",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test tests/oneul-pe.spec.js --project=chromium"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "parse-comcigan": "^1.1.2",
     "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
   }
 }
