@@ -1,7 +1,4 @@
 const {
-  STORAGE,
-  readJSON,
-  writeJSON,
   escapeHTML,
   localDateKey,
   formatDateKo,
@@ -11,34 +8,35 @@ const {
   fetchWeather,
   weatherCodeInfo,
 } = window.OneulPE;
+const Backend = window.OneulPEBackend;
 
 const DEFAULT_PERIOD_TIMES = {
-  '1': '09:00',
-  '2': '10:00',
-  '3': '11:00',
-  '4': '12:00',
-  '5': '13:30',
-  '6': '14:30',
-  '7': '15:30',
-  '8': '16:30',
+  '1': '09:00', '2': '10:00', '3': '11:00', '4': '12:00',
+  '5': '13:30', '6': '14:30', '7': '15:30', '8': '16:30',
 };
 
-const session = readJSON(sessionStorage, STORAGE.teacherSession, null);
-const teacherProfiles = readJSON(localStorage, STORAGE.teacherProfiles, []);
-const authorizedTeacher = session && teacherProfiles.find((teacher) => (
-  teacher.id === session.teacherId
-  && teacher.schoolCode === session.schoolCode
-  && teacher.email === session.email
-));
-
-if (!authorizedTeacher) {
-  window.location.replace('./teacher-login.html');
-} else {
-  startTeacherPortal();
+function offsetDateKey(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return localDateKey(date);
 }
 
-function startTeacherPortal() {
-  let lessons = readJSON(localStorage, STORAGE.lessons, []);
+async function bootTeacherPortal() {
+  try {
+    const profile = await Backend.getTeacherSession();
+    if (!profile?.verified) {
+      window.location.replace('./teacher-login.html');
+      return;
+    }
+    await startTeacherPortal(profile);
+  } catch (error) {
+    console.error(error);
+    window.location.replace('./teacher-login.html');
+  }
+}
+
+async function startTeacherPortal(profile) {
+  let lessons = [];
   let filterMode = 'all';
   let scheduleRows = [];
   let scheduleProvider = null;
@@ -57,11 +55,13 @@ function startTeacherPortal() {
   const providerBadge = document.getElementById('scheduleProviderBadge');
   const weatherStatus = document.getElementById('weatherStatus');
 
-  document.getElementById('teacherSchoolBadge').textContent = session.school.SCHUL_NM;
-  document.getElementById('teacherSchoolName').textContent = session.school.SCHUL_NM;
-  document.getElementById('teacherSchoolAddress').textContent = `${session.school.LCTN_SC_NM || ''} · ${session.school.ORG_RDNMA || ''}`;
-  document.getElementById('teacherIdentity').textContent = `${session.name} 선생님`;
+  document.getElementById('teacherSchoolBadge').textContent = profile.school.SCHUL_NM;
+  document.getElementById('teacherSchoolName').textContent = profile.school.SCHUL_NM;
+  document.getElementById('teacherSchoolAddress').textContent = `${profile.school.LCTN_SC_NM || ''} · ${profile.school.ORG_RDNMA || ''}`;
+  document.getElementById('teacherIdentity').textContent = `${profile.name} 선생님`;
+  document.getElementById('teacherRoleLabel').textContent = profile.role === 'school_admin' ? '학교 관리자' : '체육교사';
   document.getElementById('teacherTodayLabel').textContent = formatDateKo(new Date());
+  document.getElementById('teacherBackendMode').textContent = Backend.modeLabel;
 
   function getTeacherNames(lesson) {
     if (Array.isArray(lesson.teacherNames) && lesson.teacherNames.length) return lesson.teacherNames;
@@ -69,25 +69,39 @@ function startTeacherPortal() {
   }
 
   function isMine(lesson) {
-    if (Array.isArray(lesson.teacherIds)) return lesson.teacherIds.includes(session.teacherId);
-    return lesson.teacherId === session.teacherId;
+    if (Array.isArray(lesson.teacherIds)) return lesson.teacherIds.includes(profile.teacherId);
+    return lesson.teacherId === profile.teacherId;
   }
 
   function findConfiguredLesson(row) {
     return lessons.find((lesson) => (
-      lesson.schoolCode === session.schoolCode
-      && lesson.date === localDateKey()
+      lesson.date === localDateKey()
       && String(lesson.grade) === String(row.grade)
       && String(lesson.classNo) === String(row.classNo)
       && String(lesson.period) === String(row.period)
     ));
   }
 
+  async function refreshLessons(showMessage = false) {
+    try {
+      lessons = await Backend.listTeacherLessons({
+        profile,
+        from: offsetDateKey(-7),
+        to: offsetDateKey(14),
+      });
+      renderLessons();
+      renderSchedule();
+      if (showMessage) showToast('최신 수업 안내를 불러왔어요.');
+    } catch (error) {
+      console.error(error);
+      showToast('등록된 수업 안내를 불러오지 못했습니다.');
+    }
+  }
+
   function renderLessons() {
-    lessons = readJSON(localStorage, STORAGE.lessons, []);
     const today = localDateKey();
     let todayLessons = lessons
-      .filter((lesson) => lesson.schoolCode === session.schoolCode && lesson.date === today)
+      .filter((lesson) => lesson.date === today)
       .sort((a, b) => Number(a.period) - Number(b.period)
         || Number(a.grade) - Number(b.grade)
         || Number(a.classNo) - Number(b.classNo));
@@ -135,6 +149,59 @@ function startTeacherPortal() {
   allFilter.addEventListener('click', () => setFilter('all'));
   myFilter.addEventListener('click', () => setFilter('mine'));
 
+  async function loadPendingTeachers() {
+    if (profile.role !== 'school_admin') return;
+    const card = document.getElementById('teacherApprovalCard');
+    const pendingList = document.getElementById('pendingTeacherList');
+    card.classList.remove('hidden');
+    pendingList.innerHTML = '<p class="muted">승인 대기 교사를 확인하는 중입니다…</p>';
+    try {
+      const pending = await Backend.listPendingTeachers(profile);
+      if (!pending.length) {
+        pendingList.innerHTML = '<p class="muted">현재 승인 대기 중인 교사가 없습니다.</p>';
+        return;
+      }
+      pendingList.innerHTML = '';
+      pending.forEach((teacher) => {
+        const item = document.createElement('article');
+        item.className = 'teacher-lesson-item';
+        item.innerHTML = `
+          <div>
+            <strong>${escapeHTML(teacher.name)}</strong>
+            <small>${escapeHTML(teacher.email || '')}</small>
+          </div>
+          <div class="actions">
+            <button class="primary-button" type="button" data-approve-teacher="${escapeHTML(teacher.teacherId)}">승인</button>
+          </div>
+        `;
+        pendingList.appendChild(item);
+      });
+      pendingList.querySelectorAll('[data-approve-teacher]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          try {
+            await Backend.approveTeacher(profile, button.dataset.approveTeacher);
+            showToast('교사를 승인했습니다.');
+            await loadPendingTeachers();
+          } catch (error) {
+            console.error(error);
+            showToast(error?.message || '교사 승인에 실패했습니다.');
+          } finally {
+            button.disabled = false;
+          }
+        });
+      });
+    } catch (error) {
+      console.error(error);
+      pendingList.innerHTML = '<p class="muted">승인 대기 목록을 불러오지 못했습니다.</p>';
+    }
+  }
+
+  if (profile.role === 'school_admin') {
+    document.getElementById('refreshPendingTeachersButton').addEventListener('click', loadPendingTeachers);
+    loadPendingTeachers();
+  }
+
   function normalizeDirectNeis(result) {
     return {
       provider: 'neis-direct',
@@ -157,10 +224,10 @@ function startTeacherPortal() {
 
   async function fetchPreferredSchedule() {
     const params = new URLSearchParams({
-      schoolName: session.school.SCHUL_NM,
-      region: session.school.LCTN_SC_NM || '',
-      officeCode: session.school.ATPT_OFCDC_SC_CODE || '',
-      schoolCode: session.school.SD_SCHUL_CODE || '',
+      schoolName: profile.school.SCHUL_NM,
+      region: profile.school.LCTN_SC_NM || '',
+      officeCode: profile.school.ATPT_OFCDC_SC_CODE || '',
+      schoolCode: profile.school.SD_SCHUL_CODE || '',
       date: localDateKey().replaceAll('-', ''),
     });
 
@@ -170,7 +237,7 @@ function startTeacherPortal() {
       return await response.json();
     } catch (error) {
       console.warn('컴시간 중계 API를 사용할 수 없어 브라우저 NEIS fallback을 사용합니다.', error);
-      const directNeis = await fetchPeTimetable(session.school, new Date());
+      const directNeis = await fetchPeTimetable(profile.school, new Date());
       return normalizeDirectNeis(directNeis);
     }
   }
@@ -208,8 +275,6 @@ function startTeacherPortal() {
 
   function renderSchedule() {
     scheduleList.innerHTML = '';
-    lessons = readJSON(localStorage, STORAGE.lessons, []);
-
     if (!scheduleRows.length) {
       scheduleList.innerHTML = '<p class="muted">오늘 확인된 체육수업이 없습니다.</p>';
       return;
@@ -227,7 +292,7 @@ function startTeacherPortal() {
       const weatherText = weather
         ? `${weatherInfo.icon} ${escapeHTML(weather.time)} · ${Math.round(weather.temperature)}℃ · 강수 ${Math.round(weather.rainProbability ?? 0)}%`
         : '날씨 불러오는 중';
-      const teacherText = row.teacher ? ` · ${escapeHTML(row.teacher)} 선생님` : '';
+      const teacherText = row.teacher ? `${escapeHTML(row.teacher)} 선생님` : '';
       const roomText = row.classroom ? ` · ${escapeHTML(row.classroom)}` : '';
       const changedText = row.changed ? '<span class="change-chip">시간표 변경됨</span>' : '';
 
@@ -248,7 +313,7 @@ function startTeacherPortal() {
             <strong>${escapeHTML(row.grade)}-${escapeHTML(row.classNo)} · ${escapeHTML(row.subject)}</strong>
             ${changedText}
           </div>
-          <small>${teacherText.replace(/^ · /, '')}${roomText}</small>
+          <small>${teacherText}${roomText}</small>
           <span class="period-weather">${weatherText}</span>
           ${rainRisk && outdoor ? '<span class="weather-warning">⚠️ 야외수업 우천 확인 필요</span>' : ''}
         </div>
@@ -271,7 +336,6 @@ function startTeacherPortal() {
         });
       });
     });
-
     scheduleList.querySelectorAll('[data-edit-id]').forEach((button) => {
       button.addEventListener('click', () => openEditor(button.dataset.editId));
     });
@@ -281,21 +345,16 @@ function startTeacherPortal() {
     scheduleStatus.textContent = '컴시간알리미에서 오늘 시간표를 확인하고 있어요…';
     providerBadge.classList.add('hidden');
     scheduleList.innerHTML = '';
-
     try {
       const result = await fetchPreferredSchedule();
       scheduleRows = Array.isArray(result.rows) ? result.rows : [];
       scheduleProvider = result.provider || 'unknown';
       updatePeriodTimes(result.periodTimes || []);
-
       providerBadge.textContent = `현재 데이터: ${providerLabel(scheduleProvider)}`;
       providerBadge.classList.remove('hidden');
-
-      if (scheduleProvider === 'comcigan') {
-        scheduleStatus.textContent = `컴시간알리미 기준으로 오늘 체육수업 ${scheduleRows.length}개를 찾았습니다.`;
-      } else {
-        scheduleStatus.textContent = `컴시간 조회가 되지 않아 ${providerLabel(scheduleProvider)}로 전환했습니다. 체육수업 ${scheduleRows.length}개를 찾았습니다.`;
-      }
+      scheduleStatus.textContent = scheduleProvider === 'comcigan'
+        ? `컴시간알리미 기준으로 오늘 체육수업 ${scheduleRows.length}개를 찾았습니다.`
+        : `컴시간 조회가 되지 않아 ${providerLabel(scheduleProvider)}로 전환했습니다. 체육수업 ${scheduleRows.length}개를 찾았습니다.`;
       if (result.warning) scheduleStatus.textContent += ` ${result.warning}`;
       renderSchedule();
     } catch (error) {
@@ -311,13 +370,9 @@ function startTeacherPortal() {
     const current = weatherForecast.current || {};
     const todayIndex = weatherForecast.daily?.time?.indexOf(localDateKey()) ?? -1;
     const info = weatherCodeInfo(current.weather_code);
-
     document.getElementById('weatherIcon').textContent = info.icon;
-    document.getElementById('weatherTemp').textContent = Number.isFinite(current.temperature_2m)
-      ? `${Math.round(current.temperature_2m)}℃`
-      : '--℃';
+    document.getElementById('weatherTemp').textContent = Number.isFinite(current.temperature_2m) ? `${Math.round(current.temperature_2m)}℃` : '--℃';
     document.getElementById('weatherDescription').textContent = info.label;
-
     if (todayIndex >= 0) {
       const high = weatherForecast.daily.temperature_2m_max?.[todayIndex];
       const low = weatherForecast.daily.temperature_2m_min?.[todayIndex];
@@ -325,7 +380,6 @@ function startTeacherPortal() {
       document.getElementById('weatherHighLow').textContent = `${Math.round(high)}℃ / ${Math.round(low)}℃`;
       document.getElementById('weatherRainMax').textContent = `${Math.round(rain ?? 0)}%`;
     }
-
     document.getElementById('weatherSummary').classList.remove('hidden');
     if (schoolGeo) {
       document.getElementById('weatherSource').textContent = `학교 위치 ${schoolGeo.lat.toFixed(4)}, ${schoolGeo.lon.toFixed(4)} · ${schoolGeo.source} · 날씨 Open-Meteo`;
@@ -337,7 +391,7 @@ function startTeacherPortal() {
     weatherStatus.textContent = '학교 주소를 기준으로 위치와 날씨를 확인하고 있어요…';
     document.getElementById('weatherSummary').classList.add('hidden');
     try {
-      schoolGeo = await geocodeSchool(session.school);
+      schoolGeo = await geocodeSchool(profile.school);
       if (!schoolGeo) throw new Error('학교 위치를 찾지 못했습니다.');
       weatherForecast = await fetchWeather(schoolGeo.lat, schoolGeo.lon);
       weatherStatus.textContent = '학교 위치 기준 현재 날씨와 각 체육 교시의 시간대 예보입니다.';
@@ -351,13 +405,11 @@ function startTeacherPortal() {
   function clearChoiceButtons() {
     document.querySelectorAll('.choice-button').forEach((button) => button.classList.remove('selected'));
   }
-
   function syncChoiceButtons(groupId, value) {
     document.querySelectorAll(`#${groupId} .choice-button`).forEach((button) => {
       button.classList.toggle('selected', button.dataset.value === value);
     });
   }
-
   function wireChoiceGroup(groupId, inputId) {
     document.querySelectorAll(`#${groupId} .choice-button`).forEach((button) => {
       button.addEventListener('click', () => {
@@ -365,16 +417,12 @@ function startTeacherPortal() {
         syncChoiceButtons(groupId, button.dataset.value);
       });
     });
-    document.getElementById(inputId).addEventListener('input', (event) => {
-      syncChoiceButtons(groupId, event.target.value);
-    });
+    document.getElementById(inputId).addEventListener('input', (event) => syncChoiceButtons(groupId, event.target.value));
   }
-
   wireChoiceGroup('activityChoices', 'lessonActivity');
   wireChoiceGroup('locationChoices', 'lessonLocation');
 
   function openEditor(id = null, preset = null) {
-    lessons = readJSON(localStorage, STORAGE.lessons, []);
     lessonForm.reset();
     clearChoiceButtons();
     document.getElementById('lessonId').value = '';
@@ -398,7 +446,6 @@ function startTeacherPortal() {
         showToast('다른 선생님의 수업은 수정할 수 없습니다.');
         return;
       }
-
       document.getElementById('lessonId').value = lesson.id;
       document.getElementById('lessonDate').value = lesson.date;
       document.getElementById('lessonPeriod').value = lesson.period;
@@ -415,7 +462,6 @@ function startTeacherPortal() {
       document.getElementById('editorTitle').textContent = '내 수업 수정';
       deleteButton.classList.remove('hidden');
     }
-
     overlay.classList.remove('hidden');
     overlay.setAttribute('aria-hidden', 'false');
   }
@@ -430,16 +476,12 @@ function startTeacherPortal() {
   document.getElementById('refreshScheduleButton').addEventListener('click', loadSchedule);
   document.getElementById('refreshWeatherButton').addEventListener('click', loadWeather);
 
-  lessonForm.addEventListener('submit', (event) => {
+  lessonForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    lessons = readJSON(localStorage, STORAGE.lessons, []);
-
-    const editingId = document.getElementById('lessonId').value;
+    const editingId = document.getElementById('lessonId').value || null;
     const classNos = [...new Set(document.getElementById('lessonClasses').value
-      .split(',')
-      .map((value) => value.trim())
+      .split(',').map((value) => value.trim())
       .filter((value) => /^\d{1,2}$/.test(value) && Number(value) >= 1 && Number(value) <= 30))];
-
     if (!classNos.length) {
       showToast('반 번호를 확인해주세요.');
       return;
@@ -447,10 +489,7 @@ function startTeacherPortal() {
 
     let equipment = [...document.querySelectorAll('input[name="equipment"]:checked')].map((input) => input.value);
     if (equipment.includes('없음')) equipment = ['없음'];
-
     const base = {
-      schoolCode: session.schoolCode,
-      schoolName: session.school.SCHUL_NM,
       date: document.getElementById('lessonDate').value,
       period: document.getElementById('lessonPeriod').value,
       grade: document.getElementById('lessonGrade').value,
@@ -458,87 +497,51 @@ function startTeacherPortal() {
       location: document.getElementById('lessonLocation').value.trim(),
       equipment,
       notice: document.getElementById('lessonNotice').value.trim(),
-      teacherIds: [session.teacherId],
-      teacherNames: [session.name],
-      teacherId: session.teacherId,
-      teacherName: session.name,
-      updatedAt: new Date().toISOString(),
     };
 
-    const conflicts = classNos.map((classNo) => lessons.find((lesson) => (
-      lesson.id !== editingId
-      && lesson.schoolCode === base.schoolCode
-      && lesson.date === base.date
-      && String(lesson.grade) === String(base.grade)
-      && String(lesson.classNo) === String(classNo)
-      && String(lesson.period) === String(base.period)
-    ))).filter(Boolean);
-
-    const foreignConflict = conflicts.find((lesson) => !isMine(lesson));
-    if (foreignConflict) {
-      showToast(`${foreignConflict.grade}-${foreignConflict.classNo} ${foreignConflict.period}교시는 ${getTeacherNames(foreignConflict).join(', ')} 선생님이 이미 등록했습니다.`);
-      return;
+    const submit = lessonForm.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    try {
+      await Backend.saveTeacherLessons({ profile, editingId, classNos, base });
+      closeEditor();
+      await refreshLessons();
+      showToast(`${classNos.length}개 반의 수업을 저장했습니다.`);
+    } catch (error) {
+      console.error(error);
+      showToast(error?.message || '수업 저장에 실패했습니다.');
+    } finally {
+      submit.disabled = false;
     }
-
-    if (editingId) {
-      const index = lessons.findIndex((lesson) => lesson.id === editingId);
-      if (index < 0 || !isMine(lessons[index])) {
-        showToast('수정 권한이 없습니다.');
-        closeEditor();
-        return;
-      }
-      lessons.splice(index, 1);
-    }
-
-    classNos.forEach((classNo) => {
-      const existingIndex = lessons.findIndex((lesson) => (
-        lesson.schoolCode === base.schoolCode
-        && lesson.date === base.date
-        && String(lesson.grade) === String(base.grade)
-        && String(lesson.classNo) === String(classNo)
-        && String(lesson.period) === String(base.period)
-        && isMine(lesson)
-      ));
-
-      const nextLesson = {
-        ...base,
-        classNo,
-        id: existingIndex >= 0 ? lessons[existingIndex].id : crypto.randomUUID(),
-      };
-
-      if (existingIndex >= 0) lessons[existingIndex] = nextLesson;
-      else lessons.push(nextLesson);
-    });
-
-    writeJSON(localStorage, STORAGE.lessons, lessons);
-    closeEditor();
-    renderLessons();
-    renderSchedule();
-    showToast(`${classNos.length}개 반의 수업을 저장했습니다.`);
   });
 
-  deleteButton.addEventListener('click', () => {
+  deleteButton.addEventListener('click', async () => {
     const id = document.getElementById('lessonId').value;
-    if (!id) return;
-    const lesson = lessons.find((item) => item.id === id);
-    if (!lesson || !isMine(lesson)) {
-      showToast('삭제 권한이 없습니다.');
-      return;
+    if (!id || !window.confirm('이 수업을 삭제할까요?')) return;
+    deleteButton.disabled = true;
+    try {
+      await Backend.deleteTeacherLesson({ profile, lessonId: id });
+      closeEditor();
+      await refreshLessons();
+      showToast('수업을 삭제했습니다.');
+    } catch (error) {
+      console.error(error);
+      showToast(error?.message || '수업 삭제에 실패했습니다.');
+    } finally {
+      deleteButton.disabled = false;
     }
-    if (!window.confirm('이 수업을 삭제할까요?')) return;
-    lessons = lessons.filter((item) => item.id !== id);
-    writeJSON(localStorage, STORAGE.lessons, lessons);
-    closeEditor();
-    renderLessons();
-    renderSchedule();
-    showToast('수업을 삭제했습니다.');
   });
 
-  document.getElementById('teacherLogoutButton').addEventListener('click', () => {
-    sessionStorage.removeItem(STORAGE.teacherSession);
+  document.getElementById('teacherLogoutButton').addEventListener('click', async () => {
+    await Backend.logoutTeacher();
     window.location.replace('./teacher-login.html');
   });
 
-  renderLessons();
+  await refreshLessons();
   Promise.allSettled([loadSchedule(), loadWeather()]);
+
+  if (Backend.remoteEnabled) {
+    Backend.subscribeToLessons(() => refreshLessons(false));
+  }
 }
+
+bootTeacherPortal();
