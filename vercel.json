@@ -1,0 +1,23 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/today-pe/index.html" },
+    { "source": "/student", "destination": "/today-pe/student.html" },
+    { "source": "/teacher", "destination": "/today-pe/teacher.html" },
+    { "source": "/teacher/login", "destination": "/today-pe/teacher-login.html" }
+  ],
+  "headers": [
+    {
+      "source": "/today-pe/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/today-pe/" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    }
+  ]
+}
