@@ -161,10 +161,10 @@ begin
   end if;
 
   select count(*) into v_invalid_count
-  from unnest(p_teacher_ids) as teacher_id
+  from unnest(p_teacher_ids) as u(teacher_id)
   where not exists (
     select 1 from public.teacher_profiles tp
-    where tp.auth_user_id = teacher_id
+    where tp.auth_user_id = u.teacher_id
       and tp.school_id = v_profile.school_id
       and tp.verified = true
   );
@@ -180,8 +180,8 @@ begin
 
   delete from public.lesson_teachers where lesson_id = p_lesson_id;
   insert into public.lesson_teachers (lesson_id, teacher_id)
-  select p_lesson_id, teacher_id
-  from (select distinct unnest(p_teacher_ids) as teacher_id) q;
+  select p_lesson_id, u.teacher_id
+  from (select distinct teacher_id from unnest(p_teacher_ids) as x(teacher_id)) u;
 
   select coalesce(jsonb_agg(teacher_id order by teacher_id), '[]'::jsonb)
   into v_after
@@ -278,7 +278,7 @@ as $$
     and c.grade = p_grade
     and c.class_number = p_class_number
     and c.created_at >= p_from
-    and c.change_type in ('create', 'update', 'delete')
+    and c.change_type in ('create', 'update', 'delete');
 $$;
 
 grant execute on function public.get_school_teachers() to authenticated;
