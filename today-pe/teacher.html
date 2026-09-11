@@ -26,28 +26,16 @@
             <h2 id="teacherSchoolName">학교</h2>
             <p id="teacherSchoolAddress" class="muted"></p>
             <div class="teacher-summary-row">
-              <div>
-                <small>로그인 교사</small>
-                <strong id="teacherIdentity"></strong>
-              </div>
-              <div>
-                <small>권한</small>
-                <strong id="teacherRoleLabel"></strong>
-              </div>
-              <div>
-                <small>오늘</small>
-                <strong id="teacherTodayLabel"></strong>
-              </div>
+              <div><small>로그인 교사</small><strong id="teacherIdentity"></strong></div>
+              <div><small>권한</small><strong id="teacherRoleLabel"></strong></div>
+              <div><small>오늘</small><strong id="teacherTodayLabel"></strong></div>
             </div>
             <small id="teacherBackendMode" class="data-source"></small>
           </section>
 
           <section id="teacherApprovalCard" class="page-card hidden">
             <div class="section-heading teacher-heading">
-              <div>
-                <span class="eyebrow">학교 관리자</span>
-                <h3>교사 승인</h3>
-              </div>
+              <div><span class="eyebrow">학교 관리자</span><h3>교사 승인</h3></div>
               <button id="refreshPendingTeachersButton" class="ghost-button" type="button">새로고침</button>
             </div>
             <p class="muted">이 학교에 새로 가입한 체육교사를 확인한 뒤 승인합니다. 승인 전에는 교사용 관리 화면을 사용할 수 없습니다.</p>
@@ -56,21 +44,12 @@
 
           <section class="page-card weather-card">
             <div class="section-heading teacher-heading">
-              <div>
-                <span class="eyebrow">학교 위치 기준</span>
-                <h3>오늘 날씨</h3>
-              </div>
+              <div><span class="eyebrow">학교 위치 기준</span><h3>오늘 날씨</h3></div>
               <button id="refreshWeatherButton" class="ghost-button" type="button">새로고침</button>
             </div>
             <p id="weatherStatus" class="status-text">학교 위치와 날씨를 불러오는 중입니다…</p>
             <div id="weatherSummary" class="weather-summary hidden">
-              <div class="weather-now">
-                <span id="weatherIcon" class="weather-icon">🌡️</span>
-                <div>
-                  <strong id="weatherTemp">--℃</strong>
-                  <span id="weatherDescription">날씨</span>
-                </div>
-              </div>
+              <div class="weather-now"><span id="weatherIcon" class="weather-icon">🌡️</span><div><strong id="weatherTemp">--℃</strong><span id="weatherDescription">날씨</span></div></div>
               <div class="weather-stats">
                 <div><small>최고 / 최저</small><strong id="weatherHighLow">--</strong></div>
                 <div><small>최대 강수확률</small><strong id="weatherRainMax">--</strong></div>
@@ -81,10 +60,7 @@
 
           <section class="page-card">
             <div class="section-heading teacher-heading">
-              <div>
-                <span class="eyebrow">컴시간 우선 · NEIS 보조</span>
-                <h3>오늘 체육 시간표</h3>
-              </div>
+              <div><span class="eyebrow">컴시간 우선 · NEIS 보조</span><h3>오늘 체육 시간표</h3></div>
               <button id="refreshScheduleButton" class="ghost-button" type="button">다시 불러오기</button>
             </div>
             <div id="scheduleProviderBadge" class="provider-badge hidden"></div>
@@ -94,24 +70,19 @@
 
           <section class="page-card">
             <div class="section-heading teacher-heading">
-              <div>
-                <span class="eyebrow">교사 입력</span>
-                <h3>등록된 수업 안내</h3>
-              </div>
+              <div><span class="eyebrow">교사 입력</span><h3>등록된 수업 안내</h3></div>
               <button id="newLessonButton" class="primary-button" type="button">+ 수업 등록</button>
             </div>
-
             <div class="segment-control" role="group" aria-label="수업 필터">
               <button id="allLessonsFilter" class="segment-button selected" type="button">전체 수업</button>
               <button id="myLessonsFilter" class="segment-button" type="button">내 수업만</button>
             </div>
-
             <div id="teacherLessonList" class="teacher-lesson-list"></div>
           </section>
 
           <section class="page-card subtle-card">
             <strong>시간표 데이터 우선순위</strong>
-            <p>1순위는 컴시간알리미입니다. 컴시간에서 학교 검색 또는 시간표 조회가 실패하는 경우에만 NEIS 고등학교 시간표 API로 자동 전환합니다. 컴시간 조회는 브라우저에서 직접 긁지 않고 서버리스 API가 중계하도록 구성했습니다.</p>
+            <p>1순위는 컴시간알리미입니다. 컴시간에서 학교 검색 또는 시간표 조회가 실패하는 경우에만 NEIS 고등학교 시간표 API로 자동 전환합니다.</p>
           </section>
         </div>
       </section>
@@ -124,9 +95,7 @@
 
           <form id="lessonForm" class="form-grid">
             <input id="lessonId" type="hidden" />
-            <label>날짜
-              <input id="lessonDate" type="date" required />
-            </label>
+            <label>날짜<input id="lessonDate" type="date" required /></label>
             <label>교시
               <select id="lessonPeriod" required>
                 <option value="">선택</option>
@@ -180,9 +149,23 @@
               </div>
             </fieldset>
 
+            <fieldset class="full-span collaboration-fieldset">
+              <legend>공동 담당 교사</legend>
+              <p class="field-help">이 수업을 함께 관리할 선생님을 선택하세요. 일반 교사는 본인을 공동 담당에서 제외할 수 없습니다.</p>
+              <div id="lessonTeacherChoices" class="teacher-choice-list"></div>
+            </fieldset>
+
             <label class="full-span">추가 안내
               <textarea id="lessonNotice" rows="4" maxlength="200" placeholder="예: 우천 시 체육관으로 변경됩니다."></textarea>
             </label>
+
+            <section id="lessonHistorySection" class="full-span history-panel hidden">
+              <div class="history-heading">
+                <div><strong>변경 이력</strong><small>누가 무엇을 바꿨는지 확인할 수 있습니다.</small></div>
+                <button id="refreshLessonHistoryButton" class="ghost-button small" type="button">새로고침</button>
+              </div>
+              <div id="lessonHistoryList" class="history-list"></div>
+            </section>
 
             <div class="editor-actions full-span">
               <button id="deleteLessonButton" class="danger-button hidden" type="button">삭제</button>
