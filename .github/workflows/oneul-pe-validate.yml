@@ -22,12 +22,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install timetable proxy dependency
+      - name: Install app dependencies
         run: npm install --ignore-scripts --no-package-lock
 
       - name: JavaScript syntax check
         run: |
-          for file in today-pe/*.js api/*.js; do
+          find today-pe api -name '*.js' -print0 | while IFS= read -r -d '' file; do
             echo "checking $file"
             node --check "$file"
           done
@@ -87,12 +87,20 @@ jobs:
               'today-pe/shared.js',
               'today-pe/backend.js',
               'today-pe/config.js',
+              'today-pe/pwa.js',
+              'today-pe/push-client.js',
+              'today-pe/sw.js',
+              'today-pe/manifest.webmanifest',
+              'today-pe/icon.svg',
               'today-pe/style.css',
               'today-pe/teacher-extra.css',
               'today-pe/supabase/schema.sql',
               'today-pe/supabase/002_teacher_realtime.sql',
               'today-pe/supabase/003_collaboration_history_notifications.sql',
+              'today-pe/supabase/004_push_subscriptions.sql',
               'api/timetable.js',
+              'api/push/subscribe.js',
+              'api/push/send.js',
               'package.json',
           ]
           for filename in required:
@@ -126,6 +134,21 @@ jobs:
           grep -q "get_student_notifications" today-pe/supabase/003_collaboration_history_notifications.sql
           echo 'OK: collaboration + history + student notifications are wired'
 
+      - name: Check PWA and Web Push wiring
+        run: |
+          grep -q "serviceWorker.register" today-pe/pwa.js
+          grep -q "pushManager.subscribe" today-pe/pwa.js
+          grep -q "self.addEventListener('push'" today-pe/sw.js
+          grep -q "create table if not exists public.push_subscriptions" today-pe/supabase/004_push_subscriptions.sql
+          grep -q "SUPABASE_SERVICE_ROLE_KEY" api/push/subscribe.js
+          grep -q "SUPABASE_SERVICE_ROLE_KEY" api/push/send.js
+          grep -q "VAPID_PRIVATE_KEY" api/push/send.js
+          grep -q "save_pe_lesson" today-pe/push-client.js
+          grep -q "delete_pe_lesson" today-pe/push-client.js
+          grep -q "push-client.js" today-pe/teacher.html
+          grep -q "pwa.js" today-pe/student.html
+          echo 'OK: PWA install + Web Push subscribe/send path is wired'
+
       - name: Check timetable provider priority
         run: |
           grep -q "fromComcigan" api/timetable.js
@@ -147,10 +170,14 @@ jobs:
           curl --fail --silent http://127.0.0.1:4173/today-pe/shared.js | grep -q 'schoolInfo'
           curl --fail --silent http://127.0.0.1:4173/today-pe/backend.js | grep -q 'OneulPEBackend'
           curl --fail --silent http://127.0.0.1:4173/today-pe/config.js | grep -q 'SUPABASE_URL'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/pwa.js | grep -q 'OneulPEPWA'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/push-client.js | grep -q 'OneulPEPush'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/sw.js | grep -q 'CACHE_NAME'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/manifest.webmanifest | grep -q '오늘체육'
           curl --fail --silent http://127.0.0.1:4173/today-pe/style.css >/dev/null
           curl --fail --silent http://127.0.0.1:4173/today-pe/teacher-extra.css >/dev/null
           curl --fail --silent http://127.0.0.1:4173/today-pe/student-extra.css >/dev/null
-          echo 'OK: split portal static smoke test passed'
+          echo 'OK: PWA/static portal smoke test passed'
 
       - name: Check live Comcigan school search
         continue-on-error: true
