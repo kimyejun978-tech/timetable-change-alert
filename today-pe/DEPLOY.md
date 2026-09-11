@@ -38,6 +38,8 @@ npx web-push generate-vapid-keys
 
 GitHub 저장소를 Vercel 프로젝트로 연결합니다. 프레임워크 프리셋은 특별한 빌드가 필요 없는 정적/Node 서버리스 구성이면 됩니다. 저장소 루트의 `vercel.json`이 `/`, `/student`, `/teacher`, `/teacher/login`을 실제 `today-pe` 페이지로 redirect합니다.
 
+`feat/oneul-pe-mvp` 브랜치에 새 커밋이 들어오면 Vercel Git Integration이 연결된 프로젝트에서는 Preview Deployment가 자동 생성되어야 합니다.
+
 ## 4. Vercel Environment Variables
 
 ### 브라우저에 전달되는 공개 값
@@ -69,9 +71,18 @@ VAPID_SUBJECT=mailto:admin@example.com
 
 ## 5. 배포 직후 서버 상태 확인
 
+Preview 또는 Production URL에서 아래 순서대로 확인합니다.
+
 ```text
-GET https://배포주소/api/health
+GET /
+GET /student
+GET /teacher/login
+GET /api/health
+GET /api/schools?q=대덕소프트웨어마이스터고
+GET /api/timetable?schoolName=대덕소프트웨어마이스터고등학교&region=대전광역시
 ```
+
+`/student`, `/teacher/login`은 최종적으로 `/today-pe/...` 실제 파일 경로로 redirect되어야 하고, 페이지의 CSS/JS 상대경로가 정상 로드되어야 합니다.
 
 정상적인 핵심 서비스 설정:
 
@@ -88,6 +99,8 @@ Web Push까지 준비된 경우:
   "readyForPush": true
 }
 ```
+
+Supabase 환경변수가 아직 없으면 정적 UI와 컴시간/NEIS 일부 기능은 확인할 수 있지만 `readyForCore`는 false일 수 있습니다. 이는 배포 실패가 아니라 백엔드 자격증명 미연결 상태입니다.
 
 `checks.neis`가 false여도 NEIS sample 호출은 가능하지만 검색 결과 수 제한 등이 있으므로 실제 배포에서는 API 키 사용을 권장합니다.
 
