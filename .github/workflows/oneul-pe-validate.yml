@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - feat/oneul-pe-mvp
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'today-pe/**'
+      - '.github/workflows/oneul-pe-validate.yml'
   workflow_dispatch:
 
 jobs:
