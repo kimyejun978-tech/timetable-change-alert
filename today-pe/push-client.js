@@ -58,27 +58,18 @@ window.OneulPEPush = (() => {
         const authorization = headers.Authorization || headers.authorization || '';
 
         if (isSaveLesson) {
-          const action = body.p_id ? 'update' : 'create';
-          void sendWithAuthorization(authorization, {
-            action,
-            grade: Number(body.p_grade),
-            classNo: Number(body.p_class_number),
-            title: action === 'create' ? '체육 안내가 등록됐어요' : '체육 안내가 변경됐어요',
-            body: [
-              `${body.p_grade}-${body.p_class_number}`,
-              `${body.p_period}교시`,
-              body.p_activity || '체육',
-              body.p_location || '',
-            ].filter(Boolean).join(' · '),
-            url: './student.html',
-            tag: `oneul-pe-${body.p_grade}-${body.p_class_number}`,
-          });
+          const saved = await response.clone().json().catch(() => null);
+          const lessonId = saved?.id || body.p_id || null;
+          if (lessonId) {
+            void sendWithAuthorization(authorization, {
+              action: body.p_id ? 'update' : 'create',
+              lessonId,
+            });
+          }
         } else if (body.p_id) {
           void sendWithAuthorization(authorization, {
             action: 'delete',
             lessonId: body.p_id,
-            title: '체육 안내가 취소됐어요',
-            url: './student.html',
           });
         }
       }
@@ -94,37 +85,15 @@ window.OneulPEPush = (() => {
     })
     : null;
 
-  function messageFor(lesson, action) {
-    const titles = {
-      create: '체육 안내가 등록됐어요',
-      update: '체육 안내가 변경됐어요',
-      delete: '체육 안내가 취소됐어요',
-    };
-    const body = [
-      `${lesson.grade}-${lesson.classNo}`,
-      `${lesson.period}교시`,
-      lesson.activity || '체육',
-      lesson.location || '',
-    ].filter(Boolean).join(' · ');
-    return { title: titles[action] || titles.update, body };
-  }
-
   async function sendForLesson(lesson, action = 'update') {
-    if (!enabled || !lesson || !client) return { status: 'skipped' };
+    if (!enabled || !lesson?.id || !client) return { status: 'skipped' };
     try {
       const { data } = await client.auth.getSession();
       const token = data?.session?.access_token;
       if (!token) return { status: 'no_session' };
-      const message = messageFor(lesson, action);
       return sendWithAuthorization(`Bearer ${token}`, {
         action,
-        grade: Number(lesson.grade),
-        classNo: Number(lesson.classNo),
-        lessonId: action === 'delete' ? lesson.id : undefined,
-        title: message.title,
-        body: message.body,
-        url: './student.html',
-        tag: `oneul-pe-${lesson.grade}-${lesson.classNo}`,
+        lessonId: lesson.id,
       });
     } catch (error) {
       console.warn('Web Push session lookup failed', error);
