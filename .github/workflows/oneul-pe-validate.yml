@@ -88,6 +88,7 @@ jobs:
               'today-pe/teacher-login.js',
               'today-pe/teacher.html',
               'today-pe/teacher.js',
+              'today-pe/teacher-dashboard-controls.js',
               'today-pe/shared.js',
               'today-pe/backend.js',
               'today-pe/config.js',
@@ -102,6 +103,12 @@ jobs:
               'today-pe/supabase/002_teacher_realtime.sql',
               'today-pe/supabase/003_collaboration_history_notifications.sql',
               'today-pe/supabase/004_push_subscriptions.sql',
+              'today-pe/supabase/005_function_acl_hardening.sql',
+              'today-pe/supabase/006_enable_pe_lessons_realtime.sql',
+              'today-pe/supabase/007_lock_trigger_helper.sql',
+              'today-pe/supabase/008_performance_hardening.sql',
+              'today-pe/supabase/009_teacher_timetable_aliases.sql',
+              'today-pe/supabase/010_secure_initial_admin_bootstrap.sql',
               'api/timetable.js',
               'api/schools.js',
               'api/public-config.js',
@@ -129,7 +136,9 @@ jobs:
           grep -q "get_student_lessons" today-pe/supabase/schema.sql
           grep -q "TEACHER_NOT_VERIFIED" today-pe/supabase/schema.sql
           grep -q "revoke all on public.pe_lessons from anon" today-pe/supabase/schema.sql
-          echo 'OK: teacher auth + student read-only RPC architecture is wired'
+          grep -q "operator_promote_school_admin" today-pe/supabase/010_secure_initial_admin_bootstrap.sql
+          grep -q "grant execute on function public.operator_promote_school_admin(uuid) to service_role" today-pe/supabase/010_secure_initial_admin_bootstrap.sql
+          echo 'OK: teacher auth + student read-only RPC + secure admin bootstrap are wired'
 
       - name: Check collaboration history and notifications
         run: |
@@ -144,6 +153,16 @@ jobs:
           grep -q "set_lesson_teachers" today-pe/supabase/003_collaboration_history_notifications.sql
           grep -q "get_student_notifications" today-pe/supabase/003_collaboration_history_notifications.sql
           echo 'OK: collaboration + history + student notifications are wired'
+
+      - name: Check timetable teacher alias mapping
+        run: |
+          grep -q "teacher_timetable_aliases" today-pe/supabase/009_teacher_timetable_aliases.sql
+          grep -q "get_my_timetable_aliases" today-pe/supabase/009_teacher_timetable_aliases.sql
+          grep -q "set_my_timetable_aliases" today-pe/supabase/009_teacher_timetable_aliases.sql
+          grep -q "컴시간 이름 매칭 설정" today-pe/teacher-dashboard-controls.js
+          grep -q "get_my_timetable_aliases" today-pe/teacher-dashboard-controls.js
+          grep -q "set_my_timetable_aliases" today-pe/teacher-dashboard-controls.js
+          echo 'OK: timetable teacher alias mapping is wired'
 
       - name: Check PWA and Web Push wiring
         run: |
@@ -169,7 +188,9 @@ jobs:
           grep -q "SUPABASE_SERVICE_ROLE_KEY" .env.example
           grep -q '"/student"' vercel.json
           grep -q "readyForPush" api/health.js
-          echo 'OK: runtime config + school proxy + deployment health are wired'
+          grep -q "supabasePublicFallback" api/health.js
+          grep -q "if (process.env.SUPABASE_URL)" api/public-config.js
+          echo 'OK: runtime config + fallback preservation + deployment health are wired'
 
       - name: Check timetable provider priority
         run: |
