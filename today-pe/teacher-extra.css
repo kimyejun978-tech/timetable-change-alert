@@ -45,6 +45,11 @@
   background: #fff;
 }
 .schedule-item.weather-risk { border-color: #f7c66b; background: #fffbeb; }
+.schedule-filter-hidden { display: none !important; }
+.schedule-filter-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.schedule-filter-bar .segment-control { margin-bottom: 0; }
+.schedule-filter-summary { color: var(--muted); }
+.schedule-filter-empty { margin: 8px 0 0; }
 .schedule-period { display: grid; gap: 4px; align-self: stretch; align-content: center; border-right: 1px solid var(--line); }
 .schedule-period strong { color: var(--primary); font-size: 16px; }
 .schedule-period small { color: var(--muted); }
@@ -125,4 +130,6 @@
   .schedule-period { border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
   .schedule-action { grid-column: auto; }
   .history-heading { align-items: flex-start; }
+  .schedule-filter-bar { align-items: stretch; }
+  .schedule-filter-bar .segment-control { width: 100%; overflow-x: auto; }
 }
