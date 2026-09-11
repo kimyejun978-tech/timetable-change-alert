@@ -37,6 +37,7 @@ async function bootTeacherPortal() {
 
 async function startTeacherPortal(profile) {
   let lessons = [];
+  let schoolTeachers = [];
   let filterMode = 'all';
   let scheduleRows = [];
   let scheduleProvider = null;
@@ -54,6 +55,9 @@ async function startTeacherPortal(profile) {
   const scheduleStatus = document.getElementById('scheduleStatus');
   const providerBadge = document.getElementById('scheduleProviderBadge');
   const weatherStatus = document.getElementById('weatherStatus');
+  const teacherChoices = document.getElementById('lessonTeacherChoices');
+  const historySection = document.getElementById('lessonHistorySection');
+  const historyList = document.getElementById('lessonHistoryList');
 
   document.getElementById('teacherSchoolBadge').textContent = profile.school.SCHUL_NM;
   document.getElementById('teacherSchoolName').textContent = profile.school.SCHUL_NM;
@@ -95,6 +99,15 @@ async function startTeacherPortal(profile) {
     } catch (error) {
       console.error(error);
       showToast('등록된 수업 안내를 불러오지 못했습니다.');
+    }
+  }
+
+  async function loadSchoolTeachers() {
+    try {
+      schoolTeachers = await Backend.listSchoolTeachers(profile);
+    } catch (error) {
+      console.error(error);
+      schoolTeachers = [{ teacherId: profile.teacherId, name: profile.name, role: profile.role, isMe: true }];
     }
   }
 
@@ -166,13 +179,8 @@ async function startTeacherPortal(profile) {
         const item = document.createElement('article');
         item.className = 'teacher-lesson-item';
         item.innerHTML = `
-          <div>
-            <strong>${escapeHTML(teacher.name)}</strong>
-            <small>${escapeHTML(teacher.email || '')}</small>
-          </div>
-          <div class="actions">
-            <button class="primary-button" type="button" data-approve-teacher="${escapeHTML(teacher.teacherId)}">승인</button>
-          </div>
+          <div><strong>${escapeHTML(teacher.name)}</strong><small>${escapeHTML(teacher.email || '')}</small></div>
+          <div class="actions"><button class="primary-button" type="button" data-approve-teacher="${escapeHTML(teacher.teacherId)}">승인</button></div>
         `;
         pendingList.appendChild(item);
       });
@@ -182,7 +190,7 @@ async function startTeacherPortal(profile) {
           try {
             await Backend.approveTeacher(profile, button.dataset.approveTeacher);
             showToast('교사를 승인했습니다.');
-            await loadPendingTeachers();
+            await Promise.all([loadPendingTeachers(), loadSchoolTeachers()]);
           } catch (error) {
             console.error(error);
             showToast(error?.message || '교사 승인에 실패했습니다.');
@@ -304,15 +312,9 @@ async function startTeacherPortal(profile) {
       }
 
       item.innerHTML = `
-        <div class="schedule-period">
-          <strong>${escapeHTML(row.period)}교시</strong>
-          <small>${escapeHTML(periodTimes[String(row.period)] || '')}</small>
-        </div>
+        <div class="schedule-period"><strong>${escapeHTML(row.period)}교시</strong><small>${escapeHTML(periodTimes[String(row.period)] || '')}</small></div>
         <div class="schedule-main">
-          <div class="schedule-title-line">
-            <strong>${escapeHTML(row.grade)}-${escapeHTML(row.classNo)} · ${escapeHTML(row.subject)}</strong>
-            ${changedText}
-          </div>
+          <div class="schedule-title-line"><strong>${escapeHTML(row.grade)}-${escapeHTML(row.classNo)} · ${escapeHTML(row.subject)}</strong>${changedText}</div>
           <small>${teacherText}${roomText}</small>
           <span class="period-weather">${weatherText}</span>
           ${rainRisk && outdoor ? '<span class="weather-warning">⚠️ 야외수업 우천 확인 필요</span>' : ''}
@@ -405,11 +407,13 @@ async function startTeacherPortal(profile) {
   function clearChoiceButtons() {
     document.querySelectorAll('.choice-button').forEach((button) => button.classList.remove('selected'));
   }
+
   function syncChoiceButtons(groupId, value) {
     document.querySelectorAll(`#${groupId} .choice-button`).forEach((button) => {
       button.classList.toggle('selected', button.dataset.value === value);
     });
   }
+
   function wireChoiceGroup(groupId, inputId) {
     document.querySelectorAll(`#${groupId} .choice-button`).forEach((button) => {
       button.addEventListener('click', () => {
@@ -419,16 +423,109 @@ async function startTeacherPortal(profile) {
     });
     document.getElementById(inputId).addEventListener('input', (event) => syncChoiceButtons(groupId, event.target.value));
   }
+
   wireChoiceGroup('activityChoices', 'lessonActivity');
   wireChoiceGroup('locationChoices', 'lessonLocation');
 
-  function openEditor(id = null, preset = null) {
+  function renderTeacherChoices(selectedIds = [profile.teacherId]) {
+    const selected = new Set(selectedIds?.length ? selectedIds : [profile.teacherId]);
+    teacherChoices.innerHTML = '';
+    if (!schoolTeachers.length) {
+      teacherChoices.innerHTML = '<p class="muted">승인된 교사 목록을 불러오지 못했습니다.</p>';
+      return;
+    }
+
+    schoolTeachers.forEach((teacher) => {
+      const label = document.createElement('label');
+      label.className = 'teacher-choice-card';
+      const checked = selected.has(teacher.teacherId);
+      const lockSelf = teacher.teacherId === profile.teacherId && profile.role !== 'school_admin';
+      label.innerHTML = `
+        <input type="checkbox" name="lessonTeacher" value="${escapeHTML(teacher.teacherId)}" ${checked ? 'checked' : ''} ${lockSelf ? 'disabled' : ''} />
+        <span>
+          <strong>${escapeHTML(teacher.name)}${teacher.teacherId === profile.teacherId ? ' · 나' : ''}</strong>
+          <small>${teacher.role === 'school_admin' ? '학교 관리자' : '체육교사'}</small>
+        </span>
+      `;
+      teacherChoices.appendChild(label);
+    });
+  }
+
+  function historyValue(snapshot, key, alternate = null) {
+    if (!snapshot) return undefined;
+    if (snapshot[key] !== undefined) return snapshot[key];
+    if (alternate && snapshot[alternate] !== undefined) return snapshot[alternate];
+    return undefined;
+  }
+
+  function describeHistory(change) {
+    if (change.changeType === 'create') return '수업 안내를 처음 등록했습니다.';
+    if (change.changeType === 'delete') return '수업 안내를 삭제했습니다.';
+    if (change.changeType === 'teachers') return '공동 담당 교사를 변경했습니다.';
+
+    const before = change.beforeData || {};
+    const after = change.afterData || {};
+    const diffs = [];
+    const fields = [
+      ['activity', 'activity', '종목'],
+      ['location', 'location', '장소'],
+      ['period', 'period', '교시'],
+      ['lesson_date', 'date', '날짜'],
+    ];
+    fields.forEach(([remoteKey, localKey, label]) => {
+      const oldValue = historyValue(before, localKey, remoteKey);
+      const newValue = historyValue(after, localKey, remoteKey);
+      if (String(oldValue ?? '') !== String(newValue ?? '')) diffs.push(`${label} ${oldValue || '미정'} → ${newValue || '미정'}`);
+    });
+    const oldEquipment = historyValue(before, 'equipment') || [];
+    const newEquipment = historyValue(after, 'equipment') || [];
+    if (JSON.stringify(oldEquipment) !== JSON.stringify(newEquipment)) diffs.push('준비물 변경');
+    if ((historyValue(before, 'notice') || '') !== (historyValue(after, 'notice') || '')) diffs.push('추가 안내 변경');
+    return diffs.length ? diffs.join(' · ') : '수업 안내를 수정했습니다.';
+  }
+
+  function formatHistoryTime(value) {
+    return new Intl.DateTimeFormat('ko-KR', {
+      month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    }).format(new Date(value));
+  }
+
+  async function renderLessonHistory(lessonId) {
+    if (!lessonId) {
+      historySection.classList.add('hidden');
+      return;
+    }
+    historySection.classList.remove('hidden');
+    historyList.innerHTML = '<p class="muted">변경 이력을 불러오는 중입니다…</p>';
+    try {
+      const history = await Backend.listLessonHistory({ profile, lessonId });
+      if (!history.length) {
+        historyList.innerHTML = '<p class="muted">아직 기록된 변경 이력이 없습니다.</p>';
+        return;
+      }
+      historyList.innerHTML = history.slice(0, 20).map((change) => `
+        <article class="history-item">
+          <strong>${escapeHTML(describeHistory(change))}</strong>
+          <span>${escapeHTML(change.changedByName || '체육교사')}</span>
+          <small>${escapeHTML(formatHistoryTime(change.createdAt))}</small>
+        </article>
+      `).join('');
+    } catch (error) {
+      console.error(error);
+      historyList.innerHTML = '<p class="muted">변경 이력을 불러오지 못했습니다.</p>';
+    }
+  }
+
+  async function openEditor(id = null, preset = null) {
     lessonForm.reset();
     clearChoiceButtons();
     document.getElementById('lessonId').value = '';
     document.getElementById('lessonDate').value = preset?.date || localDateKey();
     document.getElementById('editorTitle').textContent = '수업 등록';
     deleteButton.classList.add('hidden');
+    historySection.classList.add('hidden');
+    historyList.innerHTML = '';
+    renderTeacherChoices([profile.teacherId]);
 
     if (preset) {
       document.getElementById('lessonPeriod').value = String(preset.period || '');
@@ -459,9 +556,12 @@ async function startTeacherPortal(profile) {
       });
       syncChoiceButtons('activityChoices', lesson.activity);
       syncChoiceButtons('locationChoices', lesson.location);
+      renderTeacherChoices(lesson.teacherIds?.length ? lesson.teacherIds : [profile.teacherId]);
       document.getElementById('editorTitle').textContent = '내 수업 수정';
       deleteButton.classList.remove('hidden');
+      renderLessonHistory(lesson.id);
     }
+
     overlay.classList.remove('hidden');
     overlay.setAttribute('aria-hidden', 'false');
   }
@@ -475,6 +575,9 @@ async function startTeacherPortal(profile) {
   document.getElementById('editorCloseButton').addEventListener('click', closeEditor);
   document.getElementById('refreshScheduleButton').addEventListener('click', loadSchedule);
   document.getElementById('refreshWeatherButton').addEventListener('click', loadWeather);
+  document.getElementById('refreshLessonHistoryButton').addEventListener('click', () => {
+    renderLessonHistory(document.getElementById('lessonId').value);
+  });
 
   lessonForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -489,6 +592,13 @@ async function startTeacherPortal(profile) {
 
     let equipment = [...document.querySelectorAll('input[name="equipment"]:checked')].map((input) => input.value);
     if (equipment.includes('없음')) equipment = ['없음'];
+    const teacherIds = [...document.querySelectorAll('input[name="lessonTeacher"]:checked')].map((input) => input.value);
+    if (profile.role !== 'school_admin' && !teacherIds.includes(profile.teacherId)) teacherIds.push(profile.teacherId);
+    if (!teacherIds.length) {
+      showToast('담당 교사를 한 명 이상 선택해주세요.');
+      return;
+    }
+
     const base = {
       date: document.getElementById('lessonDate').value,
       period: document.getElementById('lessonPeriod').value,
@@ -502,7 +612,10 @@ async function startTeacherPortal(profile) {
     const submit = lessonForm.querySelector('button[type="submit"]');
     submit.disabled = true;
     try {
-      await Backend.saveTeacherLessons({ profile, editingId, classNos, base });
+      const saved = await Backend.saveTeacherLessons({ profile, editingId, classNos, base });
+      for (const lesson of saved) {
+        await Backend.setLessonTeachers({ profile, lessonId: lesson.id, teacherIds });
+      }
       closeEditor();
       await refreshLessons();
       showToast(`${classNos.length}개 반의 수업을 저장했습니다.`);
@@ -536,6 +649,7 @@ async function startTeacherPortal(profile) {
     window.location.replace('./teacher-login.html');
   });
 
+  await loadSchoolTeachers();
   await refreshLessons();
   Promise.allSettled([loadSchedule(), loadWeather()]);
 
