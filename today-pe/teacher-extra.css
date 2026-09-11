@@ -58,7 +58,7 @@
 .schedule-action { display: flex; justify-content: flex-end; }
 .teacher-summary-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 20px;
 }
@@ -84,12 +84,39 @@
 .modal-card { max-width: 860px; margin: 0 auto; }
 .brand-link { text-decoration: none; }
 
+.collaboration-fieldset { display: grid; gap: 10px; }
+.teacher-choice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 9px; }
+.teacher-choice-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+.teacher-choice-card:has(input:checked) { border-color: #84adff; background: #eff6ff; }
+.teacher-choice-card input { width: 17px; height: 17px; }
+.teacher-choice-card span { display: grid; gap: 2px; }
+.teacher-choice-card small { color: var(--muted); }
+.history-panel { padding: 15px; border-radius: 16px; background: var(--surface-soft); }
+.history-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.history-heading small { display: block; margin-top: 3px; color: var(--muted); }
+.history-list { display: grid; gap: 8px; }
+.history-item { padding: 11px 12px; border-radius: 12px; background: #fff; border: 1px solid var(--line); }
+.history-item strong, .history-item small, .history-item span { display: block; }
+.history-item small { margin-top: 4px; color: var(--muted); }
+.history-item span { margin-top: 5px; font-size: 13px; color: #344054; line-height: 1.45; }
+
 @media (max-width: 760px) {
   .weather-summary { grid-template-columns: 1fr; }
   .schedule-item { grid-template-columns: 64px minmax(0, 1fr); }
   .schedule-action { grid-column: 2; justify-content: flex-start; }
   .schedule-period { align-self: start; }
   .weather-stats { grid-template-columns: 1fr 1fr; }
+  .teacher-summary-row { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 480px) {
@@ -97,4 +124,5 @@
   .schedule-item { grid-template-columns: 1fr; }
   .schedule-period { border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
   .schedule-action { grid-column: auto; }
+  .history-heading { align-items: flex-start; }
 }
