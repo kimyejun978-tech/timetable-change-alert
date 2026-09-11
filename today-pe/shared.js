@@ -54,11 +54,25 @@ window.OneulPE = (() => {
   }
 
   async function searchSchools(query) {
+    const normalized = String(query || '').trim();
+    if (normalized.length < 2) return [];
+
+    try {
+      const proxy = await fetch(`/api/schools?q=${encodeURIComponent(normalized)}`);
+      if (proxy.ok) {
+        const payload = await proxy.json();
+        if (Array.isArray(payload.rows)) return payload.rows;
+      }
+      throw new Error(`School proxy HTTP ${proxy.status}`);
+    } catch (error) {
+      console.warn('학교검색 서버 프록시를 사용할 수 없어 NEIS 직접 조회로 전환합니다.', error);
+    }
+
     const params = withNeisKey(new URLSearchParams({
       Type: 'json',
       pIndex: '1',
       pSize: CONFIG.NEIS_API_KEY ? '30' : '5',
-      SCHUL_NM: query,
+      SCHUL_NM: normalized,
     }));
 
     const response = await fetch(`https://open.neis.go.kr/hub/schoolInfo?${params.toString()}`);
