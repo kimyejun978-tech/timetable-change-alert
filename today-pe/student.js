@@ -13,12 +13,15 @@ const {
   showToast,
 } = window.OneulPE;
 const Backend = window.OneulPEBackend;
+const PWA = window.OneulPEPWA;
+const NOTIFIED_CHANGES_KEY = 'oneulPe.studentNotifiedChanges.v1';
 
 let studentProfile = readJSON(localStorage, STORAGE.studentProfile, null);
 let lessons = [];
 let notifications = [];
 let selectedSchool = null;
 let loadingLessons = false;
+let notificationPollingTimer = null;
 let todaySchedule = { known: false, rows: [], provider: null };
 
 const setupView = document.getElementById('studentSetupView');
@@ -76,6 +79,20 @@ function markNotificationIdsRead(ids) {
   writeJSON(localStorage, STORAGE.studentReadChanges, state);
 }
 
+function readNotifiedIds() {
+  const state = readJSON(localStorage, NOTIFIED_CHANGES_KEY, {});
+  return new Set(state[studentReadKey()] || []);
+}
+
+function markNotificationIdsNotified(ids) {
+  const key = studentReadKey();
+  if (!key) return;
+  const state = readJSON(localStorage, NOTIFIED_CHANGES_KEY, {});
+  const next = new Set([...(state[key] || []), ...ids]);
+  state[key] = [...next].slice(-300);
+  writeJSON(localStorage, NOTIFIED_CHANGES_KEY, state);
+}
+
 async function loadLessons() {
   if (!studentProfile?.school || loadingLessons) return;
   loadingLessons = true;
@@ -100,6 +117,7 @@ async function loadLessons() {
 }
 
 async function loadNotifications() {
+  if (!studentProfile?.school) return;
   notificationStatus.textContent = '최근 변경사항을 확인하고 있어요…';
   try {
     const from = new Date(Date.now() - (14 * 24 * 60 * 60 * 1000)).toISOString();
@@ -118,6 +136,7 @@ async function loadNotifications() {
     notificationStatus.textContent = '변경 알림을 불러오지 못했습니다.';
   }
   renderNotifications();
+  await maybeNotifyUnreadChanges();
 }
 
 function normalizeDirectNeis(result) {
@@ -179,6 +198,7 @@ async function boot() {
   schoolBadge.textContent = studentProfile.school.SCHUL_NM;
   showOnly('home');
   await renderStudentHome();
+  startNotificationPolling();
 }
 
 schoolSearchForm.addEventListener('submit', async (event) => {
@@ -234,6 +254,7 @@ classForm.addEventListener('submit', async (event) => {
   schoolBadge.textContent = selectedSchool.SCHUL_NM;
   showOnly('home');
   await renderStudentHome();
+  startNotificationPolling();
   showToast('학교와 반을 저장했어요.');
 });
 
@@ -461,6 +482,33 @@ function renderNotifications() {
     notificationList.appendChild(item);
   });
 }
+
+async function maybeNotifyUnreadChanges() {
+  if (!PWA?.canNotify?.() || !notifications.length) return;
+  const notifiedIds = readNotifiedIds();
+  const fresh = notifications.filter((item) => !notifiedIds.has(item.id));
+  if (!fresh.length) return;
+
+  const latest = fresh[0];
+  const description = describeNotification(latest);
+  await PWA.showLocalNotification(description.title, {
+    body: description.detail || '체육수업 안내를 확인해주세요.',
+    tag: `oneul-pe-${studentReadKey()}`,
+    data: { url: './student.html' },
+  });
+  markNotificationIdsNotified(fresh.map((item) => item.id));
+}
+
+function startNotificationPolling() {
+  if (notificationPollingTimer) clearInterval(notificationPollingTimer);
+  notificationPollingTimer = setInterval(() => {
+    if (!document.hidden && studentProfile?.school) loadNotifications();
+  }, 60 * 1000);
+}
+
+window.addEventListener('oneulpe:notification-permission', (event) => {
+  if (event.detail?.permission === 'granted') maybeNotifyUnreadChanges();
+});
 
 markAllReadButton.addEventListener('click', () => {
   markNotificationIdsRead(notifications.map((item) => item.id));
