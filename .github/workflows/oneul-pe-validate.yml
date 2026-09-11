@@ -70,7 +70,7 @@ jobs:
               'today-pe/teacher-login.html', 'today-pe/teacher-login.js',
               'today-pe/teacher-approval-context.js', 'today-pe/teacher.html',
               'today-pe/teacher.js', 'today-pe/teacher-session-guard.js',
-              'today-pe/teacher-dashboard-controls.js',
+              'today-pe/teacher-dashboard-controls.js', 'today-pe/teacher-admin-protection.js',
               'today-pe/shared.js', 'today-pe/backend.js', 'today-pe/config.js',
               'today-pe/pwa.js', 'today-pe/push-client.js', 'today-pe/sw.js',
               'today-pe/manifest.webmanifest', 'today-pe/icon.svg',
@@ -88,6 +88,7 @@ jobs:
               'today-pe/supabase/011_student_privacy_minimization.sql',
               'today-pe/supabase/012_teacher_approval_context.sql',
               'today-pe/supabase/013_teacher_access_revocation.sql',
+              'today-pe/supabase/014_protect_school_admin_revocation.sql',
               'api/timetable.js', 'api/schools.js', 'api/public-config.js', 'api/health.js',
               'api/push/subscribe.js', 'api/push/send.js',
               'tests/oneul-pe.spec.js', 'playwright.config.js', 'vercel.json', '.env.example', 'package.json',
@@ -99,8 +100,9 @@ jobs:
           if 'teacher-approval-context.js' not in login_html:
               raise SystemExit('teacher-login.html missing approval context adapter')
           teacher_html = Path('today-pe/teacher.html').read_text(encoding='utf-8')
-          if 'teacher-session-guard.js' not in teacher_html:
-              raise SystemExit('teacher.html missing session guard')
+          for script in ('teacher-session-guard.js', 'teacher-admin-protection.js'):
+              if script not in teacher_html:
+                  raise SystemExit(f'teacher.html missing {script}')
           student_html = Path('today-pe/student.html').read_text(encoding='utf-8')
           if student_html.index('student-privacy.js') > student_html.index('student-resilience.js'):
               raise SystemExit('student privacy must load before resilience cache')
@@ -117,7 +119,9 @@ jobs:
           grep -q "pending_initial_admin" today-pe/teacher-login.js
           grep -q "revoke_teacher_access" today-pe/supabase/013_teacher_access_revocation.sql
           grep -q "CANNOT_REVOKE_SELF" today-pe/supabase/013_teacher_access_revocation.sql
-          grep -q "verified = false" today-pe/supabase/013_teacher_access_revocation.sql
+          grep -q "CANNOT_REVOKE_ADMIN" today-pe/supabase/014_protect_school_admin_revocation.sql
+          grep -q "v_target.role = 'school_admin'" today-pe/supabase/014_protect_school_admin_revocation.sql
+          grep -q "관리자 계정 · 운영자만 변경" today-pe/teacher-admin-protection.js
           grep -q "data-revoke-teacher" today-pe/teacher-dashboard-controls.js
           grep -q "setInterval(checkTeacherAccess, 60_000)" today-pe/teacher-session-guard.js
           grep -q "getTeacherSession" today-pe/teacher-session-guard.js
@@ -128,7 +132,7 @@ jobs:
           grep -q "changedByName: ''" today-pe/student-privacy.js
           if grep -q "'teacher_name'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
           if grep -q "'teacher_id'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
-          echo 'OK: auth, approval, revocation, aliases and student privacy boundaries'
+          echo 'OK: auth, approval, revocation, admin protection, aliases and student privacy boundaries'
 
       - name: Check collaboration, PWA and deployment wiring
         run: |
@@ -141,7 +145,8 @@ jobs:
           grep -q "student-privacy.js" today-pe/sw.js
           grep -q "teacher-session-guard.js" today-pe/sw.js
           grep -q "teacher-approval-context.js" today-pe/sw.js
-          grep -q "oneul-pe-v5" today-pe/sw.js
+          grep -q "teacher-admin-protection.js" today-pe/sw.js
+          grep -q "oneul-pe-v6" today-pe/sw.js
           grep -q "SUPABASE_SERVICE_ROLE_KEY" api/push/send.js
           grep -q "VAPID_PRIVATE_KEY" api/push/send.js
           grep -q "/api/schools" today-pe/shared.js
@@ -168,7 +173,7 @@ jobs:
           for page in index.html student.html teacher-login.html teacher.html; do
             curl --fail --silent "http://127.0.0.1:4173/today-pe/$page" | grep -q '오늘체육'
           done
-          for file in shared.js backend.js student-privacy.js teacher-approval-context.js teacher-session-guard.js pwa.js sw.js; do
+          for file in shared.js backend.js student-privacy.js teacher-approval-context.js teacher-session-guard.js teacher-admin-protection.js pwa.js sw.js; do
             curl --fail --silent "http://127.0.0.1:4173/today-pe/$file" >/dev/null
           done
           echo 'OK: static smoke test'
