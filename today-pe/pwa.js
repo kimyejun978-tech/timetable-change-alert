@@ -93,6 +93,7 @@ window.OneulPEPWA = (() => {
     installButton()?.addEventListener('click', requestInstall);
     notificationButton()?.addEventListener('click', async () => {
       const permission = await ensureNotificationPermission();
+      window.dispatchEvent(new CustomEvent('oneulpe:notification-permission', { detail: { permission } }));
       if (permission === 'granted') {
         window.OneulPE?.showToast?.('브라우저 알림을 켰어요.');
       } else if (permission === 'denied') {
