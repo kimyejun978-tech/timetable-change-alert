@@ -119,6 +119,11 @@
 .history-item strong, .history-item small, .history-item span { display: block; }
 .history-item small { margin-top: 4px; color: var(--muted); }
 .history-item span { margin-top: 5px; font-size: 13px; color: #344054; line-height: 1.45; }
+.admin-access-panel { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.admin-access-panel .teacher-lesson-item { align-items: center; }
+.admin-access-panel .teacher-lesson-item > div:first-child { min-width: 0; }
+.admin-access-panel .teacher-lesson-item small { display: block; margin-top: 4px; color: var(--muted); }
+.admin-access-panel .danger-button { white-space: nowrap; }
 
 @media (max-width: 760px) {
   .weather-summary { grid-template-columns: 1fr; }
@@ -139,4 +144,7 @@
   .schedule-filter-bar .segment-control { width: 100%; overflow-x: auto; }
   .inline-form-row { grid-template-columns: 1fr; }
   .inline-form-row .ghost-button { width: 100%; }
+  .admin-access-panel .teacher-lesson-item { align-items: stretch; }
+  .admin-access-panel .actions { width: 100%; }
+  .admin-access-panel .danger-button { width: 100%; }
 }
