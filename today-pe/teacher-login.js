@@ -104,9 +104,15 @@ loginForm.addEventListener('submit', async (event) => {
       return;
     }
 
+    if (result.status === 'pending_initial_admin') {
+      showToast('가입은 완료됐어요. 이 학교의 최초 관리자 승인을 기다리고 있습니다.');
+      document.getElementById('backendModeDescription').textContent = `${selectedSchool.SCHUL_NM}에는 아직 승인된 학교 관리자가 없습니다. 운영자가 교사 정보를 확인한 뒤 최초 학교 관리자로 지정하면 교사 화면을 사용할 수 있습니다.`;
+      return;
+    }
+
     if (result.status === 'pending') {
-      showToast('교사 가입이 접수됐어요. 승인 후 교사 화면을 사용할 수 있습니다.');
-      document.getElementById('backendModeDescription').textContent = `${selectedSchool.SCHUL_NM} 교사 승인 대기 상태입니다. 기존 학교 관리자가 있으면 관리자가 승인하고, 아직 관리자가 없는 학교의 최초 관리자는 운영자가 확인 후 지정합니다.`;
+      showToast('교사 가입이 접수됐어요. 학교 관리자 승인을 기다려주세요.');
+      document.getElementById('backendModeDescription').textContent = `${selectedSchool.SCHUL_NM}의 학교 관리자 승인 대기 상태입니다. 승인되면 같은 계정으로 다시 로그인해 교사 화면을 사용할 수 있습니다.`;
       return;
     }
 
