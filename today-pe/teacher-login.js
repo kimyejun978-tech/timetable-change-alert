@@ -21,10 +21,10 @@ function setBackendModeCopy() {
   const description = document.getElementById('backendModeDescription');
   if (Backend.remoteEnabled) {
     label.textContent = 'Supabase 서버 인증 사용 중';
-    description.textContent = '교사 계정은 서버에서 인증하며, 첫 교사는 학교 관리자로 승인됩니다. 이후 가입한 교사는 학교 관리자의 승인을 받은 뒤 교사용 화면에 접근할 수 있습니다.';
+    description.textContent = '교사 계정은 서버에서 인증합니다. 신규 교사는 승인 대기 상태로 가입되며, 기존 학교 관리자가 있으면 관리자가 승인합니다. 아직 관리자가 없는 학교의 최초 관리자는 운영자 승인을 거쳐 지정됩니다.';
   } else {
     label.textContent = '로컬 데모 모드';
-    description.textContent = 'Supabase 설정이 비어 있어 이 브라우저 안에서만 교사 계정과 수업 데이터를 저장합니다. 기능 시연은 가능하지만 다른 기기와 데이터가 공유되지는 않습니다.';
+    description.textContent = 'Supabase 설정이 비어 있어 이 브라우저 안에서만 교사 계정과 수업 데이터를 저장합니다. 데모 모드에서는 첫 교사를 자동 학교 관리자로 처리하지만, 실제 서버 모드에서는 운영자/학교 관리자 승인을 사용합니다.';
   }
 }
 
@@ -105,8 +105,8 @@ loginForm.addEventListener('submit', async (event) => {
     }
 
     if (result.status === 'pending') {
-      showToast('교사 가입이 접수됐어요. 학교 관리자 승인을 기다려주세요.');
-      document.getElementById('backendModeDescription').textContent = `${selectedSchool.SCHUL_NM} 교사 승인 대기 상태입니다. 이 학교의 관리자 계정에서 승인하면 로그인할 수 있습니다.`;
+      showToast('교사 가입이 접수됐어요. 승인 후 교사 화면을 사용할 수 있습니다.');
+      document.getElementById('backendModeDescription').textContent = `${selectedSchool.SCHUL_NM} 교사 승인 대기 상태입니다. 기존 학교 관리자가 있으면 관리자가 승인하고, 아직 관리자가 없는 학교의 최초 관리자는 운영자가 확인 후 지정합니다.`;
       return;
     }
 
