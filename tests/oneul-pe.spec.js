@@ -131,6 +131,32 @@ test('학생-교사 핵심 흐름과 교사 승인/회수가 브라우저에서 
   await expect(teacher.locator('#teacherIdentity')).toContainText('김체육');
   await expect(teacher.locator('#teacherRoleLabel')).toContainText('학교 관리자');
 
+  // 이미 등록된 계정이 다른 학교를 골라 스스로 소속을 바꾸는 것은 막힌다.
+  const schoolLockProbe = await context.newPage();
+  await schoolLockProbe.goto('/today-pe/teacher-login.html');
+  const schoolChangeError = await schoolLockProbe.evaluate(async () => {
+    const otherSchool = {
+      ATPT_OFCDC_SC_CODE: 'B10',
+      SD_SCHUL_CODE: '9999999',
+      SCHUL_NM: '다른고등학교',
+      LCTN_SC_NM: '서울특별시',
+      ORG_RDNMA: '서울특별시 테스트로 1',
+    };
+    try {
+      await window.OneulPEBackend.loginTeacher({
+        school: otherSchool,
+        name: '김체육',
+        email: 'pe@example.com',
+        password: 'testpass1234',
+      });
+      return 'NOT_BLOCKED';
+    } catch (error) {
+      return String(error?.message || error);
+    }
+  });
+  expect(schoolChangeError).toContain('SCHOOL_CHANGE_REQUIRES_OPERATOR');
+  await schoolLockProbe.close();
+
   await teacher.locator('#newLessonButton').click();
   await teacher.locator('#lessonPeriod').selectOption('5');
   await teacher.locator('#lessonGrade').selectOption('1');
