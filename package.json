@@ -1,9 +1,11 @@
 {
   "name": "oneul-pe-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "dependencies": {
-    "parse-comcigan": "^1.1.2"
+    "@supabase/supabase-js": "^2.57.4",
+    "parse-comcigan": "^1.1.2",
+    "web-push": "^3.6.7"
   }
 }
