@@ -31,10 +31,27 @@
                 <strong id="teacherIdentity"></strong>
               </div>
               <div>
+                <small>권한</small>
+                <strong id="teacherRoleLabel"></strong>
+              </div>
+              <div>
                 <small>오늘</small>
                 <strong id="teacherTodayLabel"></strong>
               </div>
             </div>
+            <small id="teacherBackendMode" class="data-source"></small>
+          </section>
+
+          <section id="teacherApprovalCard" class="page-card hidden">
+            <div class="section-heading teacher-heading">
+              <div>
+                <span class="eyebrow">학교 관리자</span>
+                <h3>교사 승인</h3>
+              </div>
+              <button id="refreshPendingTeachersButton" class="ghost-button" type="button">새로고침</button>
+            </div>
+            <p class="muted">이 학교에 새로 가입한 체육교사를 확인한 뒤 승인합니다. 승인 전에는 교사용 관리 화면을 사용할 수 없습니다.</p>
+            <div id="pendingTeacherList" class="teacher-lesson-list"></div>
           </section>
 
           <section class="page-card weather-card">
@@ -178,7 +195,10 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./config.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="./shared.js" defer></script>
+  <script src="./backend.js" defer></script>
   <script src="./teacher.js" defer></script>
 </body>
 </html>
