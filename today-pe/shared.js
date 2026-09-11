@@ -10,6 +10,7 @@ window.OneulPE = (() => {
   };
 
   const CONFIG = window.ONEUL_PE_CONFIG || {};
+  let toastTimer = null;
 
   function readJSON(storage, key, fallback) {
     try {
@@ -31,6 +32,15 @@ window.OneulPE = (() => {
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#039;');
+  }
+
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = String(message || '');
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
   }
 
   function schoolCodeOf(school) {
