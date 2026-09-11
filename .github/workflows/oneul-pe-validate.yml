@@ -1,0 +1,94 @@
+name: Validate 오늘체육 MVP
+
+on:
+  push:
+    branches:
+      - feat/oneul-pe-mvp
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: JavaScript syntax check
+        run: node --check today-pe/app.js
+
+      - name: Validate HTML and JS element references
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          import re
+          from pathlib import Path
+
+          html = Path('today-pe/index.html').read_text(encoding='utf-8')
+          js = Path('today-pe/app.js').read_text(encoding='utf-8')
+
+          class Parser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids = []
+              def handle_starttag(self, tag, attrs):
+                  attrs = dict(attrs)
+                  if 'id' in attrs:
+                      self.ids.append(attrs['id'])
+
+          parser = Parser()
+          parser.feed(html)
+          ids = parser.ids
+          duplicate_ids = sorted({x for x in ids if ids.count(x) > 1})
+          if duplicate_ids:
+              raise SystemExit(f'Duplicate HTML ids: {duplicate_ids}')
+
+          id_set = set(ids)
+          refs = set(re.findall(r"getElementById\(['\"]([^'\"]+)['\"]\)", js))
+          missing = sorted(refs - id_set)
+          if missing:
+              raise SystemExit(f'JS references missing HTML ids: {missing}')
+
+          required_files = ['today-pe/style.css', 'today-pe/app.js']
+          for filename in required_files:
+              if not Path(filename).is_file():
+                  raise SystemExit(f'Missing required file: {filename}')
+
+          print(f'OK: {len(ids)} unique HTML ids, {len(refs)} JS id references resolved')
+          PY
+
+      - name: Serve static site and smoke test
+        run: |
+          python3 -m http.server 4173 --directory . >/tmp/oneul-pe-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          sleep 1
+          curl --fail --silent http://127.0.0.1:4173/today-pe/index.html | grep -q '오늘체육'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/app.js | grep -q 'schoolInfo'
+          curl --fail --silent http://127.0.0.1:4173/today-pe/style.css >/dev/null
+          echo 'OK: static server smoke test passed'
+
+      - name: Check NEIS school search response
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import json
+          import urllib.parse
+          import urllib.request
+
+          query = urllib.parse.urlencode({
+              'Type': 'json',
+              'pIndex': '1',
+              'pSize': '30',
+              'SCHUL_NM': '대덕소프트웨어마이스터고',
+          })
+          url = 'https://open.neis.go.kr/hub/schoolInfo?' + query
+          with urllib.request.urlopen(url, timeout=10) as response:
+              data = json.load(response)
+          rows = (data.get('schoolInfo') or [{}, {'row': []}])[1].get('row', []) if data.get('schoolInfo') else []
+          print('NEIS rows:', len(rows))
+          if rows:
+              print('First school:', rows[0].get('SCHUL_NM'))
+          else:
+              print('NEIS RESULT:', data.get('RESULT'))
+          PY
