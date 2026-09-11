@@ -3,7 +3,6 @@ const {
   readJSON,
   writeJSON,
   escapeHTML,
-  schoolCodeOf,
   searchSchools,
   renderSchoolButton,
   localDateKey,
@@ -11,10 +10,12 @@ const {
   formatUpdated,
   showToast,
 } = window.OneulPE;
+const Backend = window.OneulPEBackend;
 
 let studentProfile = readJSON(localStorage, STORAGE.studentProfile, null);
-let lessons = readJSON(localStorage, STORAGE.lessons, []);
+let lessons = [];
 let selectedSchool = null;
+let loadingLessons = false;
 
 const setupView = document.getElementById('studentSetupView');
 const homeView = document.getElementById('studentHomeView');
@@ -25,13 +26,54 @@ const schoolSearchStatus = document.getElementById('studentSchoolSearchStatus');
 const schoolResults = document.getElementById('studentSchoolResults');
 const classForm = document.getElementById('studentClassForm');
 const schoolSummary = document.getElementById('studentSchoolSummary');
+const refreshButton = document.getElementById('refreshStudentButton');
 
 function showOnly(view) {
   setupView.classList.toggle('hidden', view !== 'setup');
   homeView.classList.toggle('hidden', view !== 'home');
 }
 
-function boot() {
+function mondayOf(date) {
+  const result = new Date(date);
+  const day = result.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  result.setDate(result.getDate() + diff);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function weekRange() {
+  const monday = mondayOf(new Date());
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  return { monday, friday, from: localDateKey(monday), to: localDateKey(friday) };
+}
+
+async function loadLessons() {
+  if (!studentProfile?.school || loadingLessons) return;
+  loadingLessons = true;
+  refreshButton.disabled = true;
+  try {
+    const { from, to } = weekRange();
+    lessons = await Backend.listStudentLessons({
+      school: studentProfile.school,
+      grade: studentProfile.grade,
+      classNo: studentProfile.classNo,
+      from,
+      to,
+    });
+  } catch (error) {
+    console.error(error);
+    lessons = [];
+    showToast('수업 정보를 불러오지 못했습니다.');
+  } finally {
+    loadingLessons = false;
+    refreshButton.disabled = false;
+  }
+}
+
+async function boot() {
+  document.getElementById('studentBackendMode').textContent = Backend.modeLabel;
   if (!studentProfile?.school || !studentProfile?.grade || !studentProfile?.classNo) {
     showOnly('setup');
     schoolBadge.textContent = '학생 포털';
@@ -39,8 +81,8 @@ function boot() {
   }
 
   schoolBadge.textContent = studentProfile.school.SCHUL_NM;
-  renderStudentHome();
   showOnly('home');
+  await renderStudentHome();
 }
 
 schoolSearchForm.addEventListener('submit', async (event) => {
@@ -82,7 +124,7 @@ function chooseSchool(school) {
   classForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-classForm.addEventListener('submit', (event) => {
+classForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (!selectedSchool) {
     showToast('학교를 먼저 선택해주세요.');
@@ -96,25 +138,27 @@ classForm.addEventListener('submit', (event) => {
   };
   writeJSON(localStorage, STORAGE.studentProfile, studentProfile);
   schoolBadge.textContent = selectedSchool.SCHUL_NM;
-  renderStudentHome();
   showOnly('home');
+  await renderStudentHome();
   showToast('학교와 반을 저장했어요.');
 });
 
-function lessonMatchesStudent(lesson) {
-  return lesson.schoolCode === schoolCodeOf(studentProfile.school)
-    && String(lesson.grade) === String(studentProfile.grade)
-    && String(lesson.classNo) === String(studentProfile.classNo);
-}
-
-function renderStudentHome() {
-  lessons = readJSON(localStorage, STORAGE.lessons, []);
+async function renderStudentHome() {
   document.getElementById('studentDateLabel').textContent = formatDateKo(new Date());
   document.getElementById('studentClassLabel').textContent = `${studentProfile.grade}학년 ${studentProfile.classNo}반 · 오늘의 체육`;
+  document.getElementById('studentBackendMode').textContent = Backend.modeLabel;
 
+  const todayContainer = document.getElementById('todayLessons');
+  todayContainer.innerHTML = `
+    <section class="lesson-card empty">
+      <div><h3>불러오는 중…</h3><p>선생님이 등록한 최신 체육 정보를 확인하고 있습니다.</p></div>
+    </section>
+  `;
+
+  await loadLessons();
   const today = localDateKey();
   const todayLessons = lessons
-    .filter((lesson) => lessonMatchesStudent(lesson) && lesson.date === today)
+    .filter((lesson) => lesson.date === today)
     .sort((a, b) => Number(a.period) - Number(b.period));
 
   renderTodayLessons(todayLessons);
@@ -130,8 +174,8 @@ function renderTodayLessons(todayLessons) {
       <section class="lesson-card empty">
         <div>
           <div class="lesson-meta"><span class="meta-chip">${escapeHTML(formatDateKo(new Date()))}</span></div>
-          <h3>아직 등록 전이에요</h3>
-          <p>오늘 수업 정보가 아직 등록되지 않았습니다.</p>
+          <h3>아직 안내 전이에요</h3>
+          <p>오늘 체육 수업 안내가 아직 등록되지 않았습니다.</p>
         </div>
       </section>
     `;
@@ -140,6 +184,9 @@ function renderTodayLessons(todayLessons) {
 
   todayLessons.forEach((lesson) => {
     const equipment = lesson.equipment?.length ? lesson.equipment.join(' · ') : '준비물 없음';
+    const teachers = lesson.teacherNames?.length
+      ? lesson.teacherNames.join(', ')
+      : (lesson.teacherName || '체육교사');
     const card = document.createElement('section');
     card.className = 'lesson-card';
     card.innerHTML = `
@@ -152,24 +199,15 @@ function renderTodayLessons(todayLessons) {
         <p>🎒 ${escapeHTML(equipment)}</p>
         ${lesson.notice ? `<p class="lesson-note">${escapeHTML(lesson.notice)}</p>` : ''}
       </div>
-      <div class="updated-label">담당 ${escapeHTML(lesson.teacherName || '체육교사')} · 마지막 수정 ${escapeHTML(formatUpdated(lesson.updatedAt))}</div>
+      <div class="updated-label">담당 ${escapeHTML(teachers)} · 마지막 수정 ${escapeHTML(formatUpdated(lesson.updatedAt))}</div>
     `;
     container.appendChild(card);
   });
 }
 
-function mondayOf(date) {
-  const result = new Date(date);
-  const day = result.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  result.setDate(result.getDate() + diff);
-  result.setHours(0, 0, 0, 0);
-  return result;
-}
-
 function renderWeekLessons() {
   const container = document.getElementById('weekLessonList');
-  const monday = mondayOf(new Date());
+  const { monday } = weekRange();
   const dayLabels = ['월', '화', '수', '목', '금'];
   container.innerHTML = '';
 
@@ -178,7 +216,7 @@ function renderWeekLessons() {
     date.setDate(monday.getDate() + i);
     const key = localDateKey(date);
     const dayLessons = lessons
-      .filter((lesson) => lessonMatchesStudent(lesson) && lesson.date === key)
+      .filter((lesson) => lesson.date === key)
       .sort((a, b) => Number(a.period) - Number(b.period));
 
     const row = document.createElement('div');
@@ -186,7 +224,7 @@ function renderWeekLessons() {
     if (!dayLessons.length) {
       row.innerHTML = `
         <div class="week-day">${dayLabels[i]}</div>
-        <div class="week-main"><strong>등록된 체육 수업 없음</strong><small>${date.getMonth() + 1}/${date.getDate()}</small></div>
+        <div class="week-main"><strong>등록된 체육 안내 없음</strong><small>${date.getMonth() + 1}/${date.getDate()}</small></div>
       `;
     } else {
       row.innerHTML = `
@@ -205,8 +243,8 @@ function renderWeekLessons() {
   }
 }
 
-document.getElementById('refreshStudentButton').addEventListener('click', () => {
-  renderStudentHome();
+refreshButton.addEventListener('click', async () => {
+  await renderStudentHome();
   showToast('최신 정보를 불러왔어요.');
 });
 
@@ -215,6 +253,7 @@ document.getElementById('studentResetButton').addEventListener('click', () => {
   localStorage.removeItem(STORAGE.studentProfile);
   studentProfile = null;
   selectedSchool = null;
+  lessons = [];
   classForm.classList.add('hidden');
   schoolResults.innerHTML = '';
   schoolSearchStatus.textContent = '';
