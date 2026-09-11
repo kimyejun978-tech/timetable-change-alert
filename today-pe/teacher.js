@@ -6,7 +6,22 @@ const {
   localDateKey,
   formatDateKo,
   showToast,
+  fetchPeTimetable,
+  geocodeSchool,
+  fetchWeather,
+  weatherCodeInfo,
 } = window.OneulPE;
+
+const DEFAULT_PERIOD_TIMES = {
+  '1': '09:00',
+  '2': '10:00',
+  '3': '11:00',
+  '4': '12:00',
+  '5': '13:30',
+  '6': '14:30',
+  '7': '15:30',
+  '8': '16:30',
+};
 
 const session = readJSON(sessionStorage, STORAGE.teacherSession, null);
 const teacherProfiles = readJSON(localStorage, STORAGE.teacherProfiles, []);
@@ -25,6 +40,11 @@ if (!authorizedTeacher) {
 function startTeacherPortal() {
   let lessons = readJSON(localStorage, STORAGE.lessons, []);
   let filterMode = 'all';
+  let scheduleRows = [];
+  let scheduleProvider = null;
+  let periodTimes = { ...DEFAULT_PERIOD_TIMES };
+  let weatherForecast = null;
+  let schoolGeo = null;
 
   const overlay = document.getElementById('lessonEditorOverlay');
   const lessonForm = document.getElementById('lessonForm');
@@ -32,6 +52,10 @@ function startTeacherPortal() {
   const list = document.getElementById('teacherLessonList');
   const allFilter = document.getElementById('allLessonsFilter');
   const myFilter = document.getElementById('myLessonsFilter');
+  const scheduleList = document.getElementById('peSchedule');
+  const scheduleStatus = document.getElementById('scheduleStatus');
+  const providerBadge = document.getElementById('scheduleProviderBadge');
+  const weatherStatus = document.getElementById('weatherStatus');
 
   document.getElementById('teacherSchoolBadge').textContent = session.school.SCHUL_NM;
   document.getElementById('teacherSchoolName').textContent = session.school.SCHUL_NM;
@@ -49,6 +73,16 @@ function startTeacherPortal() {
     return lesson.teacherId === session.teacherId;
   }
 
+  function findConfiguredLesson(row) {
+    return lessons.find((lesson) => (
+      lesson.schoolCode === session.schoolCode
+      && lesson.date === localDateKey()
+      && String(lesson.grade) === String(row.grade)
+      && String(lesson.classNo) === String(row.classNo)
+      && String(lesson.period) === String(row.period)
+    ));
+  }
+
   function renderLessons() {
     lessons = readJSON(localStorage, STORAGE.lessons, []);
     const today = localDateKey();
@@ -62,7 +96,7 @@ function startTeacherPortal() {
 
     list.innerHTML = '';
     if (!todayLessons.length) {
-      list.innerHTML = `<p class="muted">${filterMode === 'mine' ? '오늘 내 수업으로 등록된 체육수업이 없습니다.' : '오늘 등록된 체육수업이 없습니다.'}</p>`;
+      list.innerHTML = `<p class="muted">${filterMode === 'mine' ? '오늘 내 수업으로 등록된 체육수업이 없습니다.' : '오늘 등록된 체육수업 안내가 없습니다.'}</p>`;
       return;
     }
 
@@ -101,6 +135,219 @@ function startTeacherPortal() {
   allFilter.addEventListener('click', () => setFilter('all'));
   myFilter.addEventListener('click', () => setFilter('mine'));
 
+  function normalizeDirectNeis(result) {
+    return {
+      provider: 'neis-direct',
+      rows: result.rows.map((row) => ({
+        grade: Number(row.GRADE),
+        classNo: Number(row.CLASS_NM),
+        period: Number(row.PERIO),
+        subject: row.ITRT_CNTNT || '체육',
+        teacher: '',
+        classroom: '',
+        changed: false,
+      })),
+      periodTimes: [],
+      warning: result.sampleLimited
+        ? '개발 모드 NEIS 조회는 최대 5건 제한 때문에 일부 체육수업이 빠질 수 있습니다.'
+        : null,
+      fallbackUsed: true,
+    };
+  }
+
+  async function fetchPreferredSchedule() {
+    const params = new URLSearchParams({
+      schoolName: session.school.SCHUL_NM,
+      region: session.school.LCTN_SC_NM || '',
+      officeCode: session.school.ATPT_OFCDC_SC_CODE || '',
+      schoolCode: session.school.SD_SCHUL_CODE || '',
+      date: localDateKey().replaceAll('-', ''),
+    });
+
+    try {
+      const response = await fetch(`/api/timetable?${params.toString()}`);
+      if (!response.ok) throw new Error(`Preferred timetable API HTTP ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.warn('컴시간 중계 API를 사용할 수 없어 브라우저 NEIS fallback을 사용합니다.', error);
+      const directNeis = await fetchPeTimetable(session.school, new Date());
+      return normalizeDirectNeis(directNeis);
+    }
+  }
+
+  function providerLabel(provider) {
+    if (provider === 'comcigan') return '컴시간알리미';
+    if (provider === 'neis') return 'NEIS fallback';
+    if (provider === 'neis-direct') return 'NEIS 직접 fallback';
+    return '시간표 데이터';
+  }
+
+  function updatePeriodTimes(times = []) {
+    periodTimes = { ...DEFAULT_PERIOD_TIMES };
+    times.forEach((item) => {
+      if (item?.number && item?.start) periodTimes[String(item.number)] = item.start;
+    });
+  }
+
+  function getPeriodWeather(period) {
+    if (!weatherForecast?.hourly?.time?.length) return null;
+    const start = periodTimes[String(period)] || DEFAULT_PERIOD_TIMES[String(period)] || '09:00';
+    const [hourText, minuteText = '0'] = String(start).split(':');
+    let hour = Number(hourText);
+    if (Number(minuteText) >= 30) hour += 1;
+    const target = `${localDateKey()}T${String(hour).padStart(2, '0')}:00`;
+    const index = weatherForecast.hourly.time.indexOf(target);
+    if (index < 0) return null;
+    return {
+      time: start,
+      temperature: weatherForecast.hourly.temperature_2m?.[index],
+      rainProbability: weatherForecast.hourly.precipitation_probability?.[index],
+      code: weatherForecast.hourly.weather_code?.[index],
+    };
+  }
+
+  function renderSchedule() {
+    scheduleList.innerHTML = '';
+    lessons = readJSON(localStorage, STORAGE.lessons, []);
+
+    if (!scheduleRows.length) {
+      scheduleList.innerHTML = '<p class="muted">오늘 확인된 체육수업이 없습니다.</p>';
+      return;
+    }
+
+    scheduleRows.forEach((row, index) => {
+      const configured = findConfiguredLesson(row);
+      const weather = getPeriodWeather(row.period);
+      const weatherInfo = weather ? weatherCodeInfo(weather.code) : null;
+      const rainRisk = weather && Number(weather.rainProbability) >= 60;
+      const outdoor = configured && /운동장|야외|외부/.test(configured.location || '');
+      const item = document.createElement('article');
+      item.className = `schedule-item${rainRisk && outdoor ? ' weather-risk' : ''}`;
+
+      const weatherText = weather
+        ? `${weatherInfo.icon} ${escapeHTML(weather.time)} · ${Math.round(weather.temperature)}℃ · 강수 ${Math.round(weather.rainProbability ?? 0)}%`
+        : '날씨 불러오는 중';
+      const teacherText = row.teacher ? ` · ${escapeHTML(row.teacher)} 선생님` : '';
+      const roomText = row.classroom ? ` · ${escapeHTML(row.classroom)}` : '';
+      const changedText = row.changed ? '<span class="change-chip">시간표 변경됨</span>' : '';
+
+      let action = `<button type="button" class="ghost-button" data-schedule-index="${index}">안내 등록</button>`;
+      if (configured) {
+        action = isMine(configured)
+          ? `<button type="button" class="ghost-button" data-edit-id="${escapeHTML(configured.id)}">내 안내 수정</button>`
+          : `<span class="read-only-label">${escapeHTML(getTeacherNames(configured).join(', '))} 등록</span>`;
+      }
+
+      item.innerHTML = `
+        <div class="schedule-period">
+          <strong>${escapeHTML(row.period)}교시</strong>
+          <small>${escapeHTML(periodTimes[String(row.period)] || '')}</small>
+        </div>
+        <div class="schedule-main">
+          <div class="schedule-title-line">
+            <strong>${escapeHTML(row.grade)}-${escapeHTML(row.classNo)} · ${escapeHTML(row.subject)}</strong>
+            ${changedText}
+          </div>
+          <small>${teacherText.replace(/^ · /, '')}${roomText}</small>
+          <span class="period-weather">${weatherText}</span>
+          ${rainRisk && outdoor ? '<span class="weather-warning">⚠️ 야외수업 우천 확인 필요</span>' : ''}
+        </div>
+        <div class="schedule-action">${action}</div>
+      `;
+      scheduleList.appendChild(item);
+    });
+
+    scheduleList.querySelectorAll('[data-schedule-index]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const row = scheduleRows[Number(button.dataset.scheduleIndex)];
+        if (!row) return;
+        openEditor(null, {
+          date: localDateKey(),
+          period: row.period,
+          grade: row.grade,
+          classNo: row.classNo,
+          activity: row.subject === '체육' ? '' : row.subject,
+          location: row.classroom || '',
+        });
+      });
+    });
+
+    scheduleList.querySelectorAll('[data-edit-id]').forEach((button) => {
+      button.addEventListener('click', () => openEditor(button.dataset.editId));
+    });
+  }
+
+  async function loadSchedule() {
+    scheduleStatus.textContent = '컴시간알리미에서 오늘 시간표를 확인하고 있어요…';
+    providerBadge.classList.add('hidden');
+    scheduleList.innerHTML = '';
+
+    try {
+      const result = await fetchPreferredSchedule();
+      scheduleRows = Array.isArray(result.rows) ? result.rows : [];
+      scheduleProvider = result.provider || 'unknown';
+      updatePeriodTimes(result.periodTimes || []);
+
+      providerBadge.textContent = `현재 데이터: ${providerLabel(scheduleProvider)}`;
+      providerBadge.classList.remove('hidden');
+
+      if (scheduleProvider === 'comcigan') {
+        scheduleStatus.textContent = `컴시간알리미 기준으로 오늘 체육수업 ${scheduleRows.length}개를 찾았습니다.`;
+      } else {
+        scheduleStatus.textContent = `컴시간 조회가 되지 않아 ${providerLabel(scheduleProvider)}로 전환했습니다. 체육수업 ${scheduleRows.length}개를 찾았습니다.`;
+      }
+      if (result.warning) scheduleStatus.textContent += ` ${result.warning}`;
+      renderSchedule();
+    } catch (error) {
+      console.error(error);
+      scheduleRows = [];
+      scheduleStatus.textContent = '컴시간과 NEIS 모두에서 시간표를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+      renderSchedule();
+    }
+  }
+
+  function renderWeatherSummary() {
+    if (!weatherForecast) return;
+    const current = weatherForecast.current || {};
+    const todayIndex = weatherForecast.daily?.time?.indexOf(localDateKey()) ?? -1;
+    const info = weatherCodeInfo(current.weather_code);
+
+    document.getElementById('weatherIcon').textContent = info.icon;
+    document.getElementById('weatherTemp').textContent = Number.isFinite(current.temperature_2m)
+      ? `${Math.round(current.temperature_2m)}℃`
+      : '--℃';
+    document.getElementById('weatherDescription').textContent = info.label;
+
+    if (todayIndex >= 0) {
+      const high = weatherForecast.daily.temperature_2m_max?.[todayIndex];
+      const low = weatherForecast.daily.temperature_2m_min?.[todayIndex];
+      const rain = weatherForecast.daily.precipitation_probability_max?.[todayIndex];
+      document.getElementById('weatherHighLow').textContent = `${Math.round(high)}℃ / ${Math.round(low)}℃`;
+      document.getElementById('weatherRainMax').textContent = `${Math.round(rain ?? 0)}%`;
+    }
+
+    document.getElementById('weatherSummary').classList.remove('hidden');
+    if (schoolGeo) {
+      document.getElementById('weatherSource').textContent = `학교 위치 ${schoolGeo.lat.toFixed(4)}, ${schoolGeo.lon.toFixed(4)} · ${schoolGeo.source} · 날씨 Open-Meteo`;
+    }
+    renderSchedule();
+  }
+
+  async function loadWeather() {
+    weatherStatus.textContent = '학교 주소를 기준으로 위치와 날씨를 확인하고 있어요…';
+    document.getElementById('weatherSummary').classList.add('hidden');
+    try {
+      schoolGeo = await geocodeSchool(session.school);
+      if (!schoolGeo) throw new Error('학교 위치를 찾지 못했습니다.');
+      weatherForecast = await fetchWeather(schoolGeo.lat, schoolGeo.lon);
+      weatherStatus.textContent = '학교 위치 기준 현재 날씨와 각 체육 교시의 시간대 예보입니다.';
+      renderWeatherSummary();
+    } catch (error) {
+      console.error(error);
+      weatherStatus.textContent = '학교 위치 또는 날씨를 불러오지 못했습니다.';
+    }
+  }
+
   function clearChoiceButtons() {
     document.querySelectorAll('.choice-button').forEach((button) => button.classList.remove('selected'));
   }
@@ -126,13 +373,24 @@ function startTeacherPortal() {
   wireChoiceGroup('activityChoices', 'lessonActivity');
   wireChoiceGroup('locationChoices', 'lessonLocation');
 
-  function openEditor(id = null) {
+  function openEditor(id = null, preset = null) {
+    lessons = readJSON(localStorage, STORAGE.lessons, []);
     lessonForm.reset();
     clearChoiceButtons();
     document.getElementById('lessonId').value = '';
-    document.getElementById('lessonDate').value = localDateKey();
+    document.getElementById('lessonDate').value = preset?.date || localDateKey();
     document.getElementById('editorTitle').textContent = '수업 등록';
     deleteButton.classList.add('hidden');
+
+    if (preset) {
+      document.getElementById('lessonPeriod').value = String(preset.period || '');
+      document.getElementById('lessonGrade').value = String(preset.grade || '');
+      document.getElementById('lessonClasses').value = String(preset.classNo || '');
+      document.getElementById('lessonActivity').value = preset.activity || '';
+      document.getElementById('lessonLocation').value = preset.location || '';
+      syncChoiceButtons('activityChoices', preset.activity || '');
+      syncChoiceButtons('locationChoices', preset.location || '');
+    }
 
     if (id) {
       const lesson = lessons.find((item) => item.id === id);
@@ -169,6 +427,8 @@ function startTeacherPortal() {
 
   document.getElementById('newLessonButton').addEventListener('click', () => openEditor());
   document.getElementById('editorCloseButton').addEventListener('click', closeEditor);
+  document.getElementById('refreshScheduleButton').addEventListener('click', loadSchedule);
+  document.getElementById('refreshWeatherButton').addEventListener('click', loadWeather);
 
   lessonForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -253,6 +513,7 @@ function startTeacherPortal() {
     writeJSON(localStorage, STORAGE.lessons, lessons);
     closeEditor();
     renderLessons();
+    renderSchedule();
     showToast(`${classNos.length}개 반의 수업을 저장했습니다.`);
   });
 
@@ -269,6 +530,7 @@ function startTeacherPortal() {
     writeJSON(localStorage, STORAGE.lessons, lessons);
     closeEditor();
     renderLessons();
+    renderSchedule();
     showToast('수업을 삭제했습니다.');
   });
 
@@ -278,4 +540,5 @@ function startTeacherPortal() {
   });
 
   renderLessons();
+  Promise.allSettled([loadSchedule(), loadWeather()]);
 }
