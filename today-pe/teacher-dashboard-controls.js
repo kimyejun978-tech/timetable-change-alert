@@ -9,6 +9,7 @@
   let controls = null;
   let summary = null;
   let aliasPanel = null;
+  let accessPanel = null;
   let aliases = [];
   let profile = null;
 
@@ -139,6 +140,126 @@
     }
   }
 
+  function localRevokeTeacher(teacherId) {
+    const { STORAGE, readJSON, writeJSON } = window.OneulPE;
+    const profiles = readJSON(localStorage, STORAGE.teacherProfiles, []);
+    const target = profiles.find((item) => item.id === teacherId);
+    if (!target) throw new Error('교사 정보를 찾지 못했습니다.');
+    if (target.id === profile.teacherId) throw new Error('자기 자신의 권한은 회수할 수 없습니다.');
+
+    target.verified = false;
+    target.role = 'teacher';
+    writeJSON(localStorage, STORAGE.teacherProfiles, profiles);
+
+    const nameById = new Map(profiles.map((item) => [item.id, item.name]));
+    const lessons = readJSON(localStorage, STORAGE.lessons, []);
+    lessons.forEach((lesson) => {
+      if (lesson.schoolCode !== profile.schoolCode || !Array.isArray(lesson.teacherIds) || !lesson.teacherIds.includes(teacherId)) return;
+      let nextIds = lesson.teacherIds.filter((id) => id !== teacherId);
+      if (!nextIds.length) nextIds = [profile.teacherId];
+      lesson.teacherIds = nextIds;
+      lesson.teacherNames = nextIds.map((id) => nameById.get(id) || profile.name);
+      lesson.teacherId = nextIds[0];
+      lesson.teacherName = lesson.teacherNames[0];
+      lesson.updatedAt = new Date().toISOString();
+    });
+    writeJSON(localStorage, STORAGE.lessons, lessons);
+
+    const map = localAliasMap();
+    delete map[teacherId];
+    localStorage.setItem(ALIAS_STORAGE_KEY, JSON.stringify(map));
+  }
+
+  async function revokeTeacherAccess(teacherId) {
+    if (!profile || profile.role !== 'school_admin') throw new Error('학교 관리자 권한이 필요합니다.');
+    if (!Backend.remoteEnabled) {
+      localRevokeTeacher(teacherId);
+      return;
+    }
+    try {
+      await rpc('revoke_teacher_access', { p_teacher_user_id: teacherId });
+    } catch (error) {
+      const message = String(error?.message || '');
+      if (message.includes('CANNOT_REVOKE_SELF')) throw new Error('자기 자신의 권한은 회수할 수 없습니다.');
+      if (message.includes('ADMIN_REQUIRED')) throw new Error('학교 관리자 권한이 필요합니다.');
+      if (message.includes('TEACHER_NOT_FOUND')) throw new Error('같은 학교의 교사를 찾지 못했습니다.');
+      throw error;
+    }
+  }
+
+  function ensureAccessPanel() {
+    if (!profile || profile.role !== 'school_admin' || accessPanel?.isConnected) return;
+    const approvalCard = document.getElementById('teacherApprovalCard');
+    if (!approvalCard) return;
+
+    accessPanel = document.createElement('section');
+    accessPanel.className = 'admin-access-panel';
+    accessPanel.innerHTML = `
+      <div class="history-heading">
+        <div>
+          <strong>승인된 교사 관리</strong>
+          <small>접근 권한을 회수하면 해당 교사는 즉시 교사용 기능을 사용할 수 없습니다.</small>
+        </div>
+        <button type="button" class="ghost-button small" data-access-refresh>새로고침</button>
+      </div>
+      <div class="teacher-lesson-list" data-approved-teacher-list></div>
+    `;
+    approvalCard.appendChild(accessPanel);
+    accessPanel.querySelector('[data-access-refresh]').addEventListener('click', loadApprovedTeachers);
+  }
+
+  async function loadApprovedTeachers() {
+    if (!profile || profile.role !== 'school_admin') return;
+    ensureAccessPanel();
+    const list = accessPanel?.querySelector('[data-approved-teacher-list]');
+    if (!list) return;
+    list.innerHTML = '<p class="muted">승인된 교사를 불러오는 중입니다…</p>';
+    try {
+      const teachers = await Backend.listSchoolTeachers(profile);
+      if (!teachers.length) {
+        list.innerHTML = '<p class="muted">승인된 교사가 없습니다.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      teachers.forEach((teacher) => {
+        const item = document.createElement('article');
+        item.className = 'teacher-lesson-item';
+        const isMe = teacher.isMe || teacher.teacherId === profile.teacherId;
+        item.innerHTML = `
+          <div>
+            <strong>${window.OneulPE.escapeHTML(teacher.name || '체육교사')}</strong>
+            <small>${teacher.role === 'school_admin' ? '학교 관리자' : '체육교사'}${isMe ? ' · 내 계정' : ''}</small>
+          </div>
+          <div class="actions">
+            ${isMe ? '<span class="read-only-label">현재 로그인</span>' : `<button type="button" class="danger-button" data-revoke-teacher="${window.OneulPE.escapeHTML(teacher.teacherId)}">권한 회수</button>`}
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      list.querySelectorAll('[data-revoke-teacher]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const target = teachers.find((teacher) => teacher.teacherId === button.dataset.revokeTeacher);
+          if (!window.confirm(`${target?.name || '이 교사'}의 교사용 접근 권한을 회수할까요?`)) return;
+          button.disabled = true;
+          try {
+            await revokeTeacherAccess(button.dataset.revokeTeacher);
+            window.OneulPE?.showToast?.('교사 접근 권한을 회수했습니다. 단독 담당 수업은 관리자에게 인계됩니다.');
+            await loadApprovedTeachers();
+            setTimeout(() => window.location.reload(), 500);
+          } catch (error) {
+            console.error(error);
+            window.OneulPE?.showToast?.(error?.message || '교사 권한 회수에 실패했습니다.');
+            button.disabled = false;
+          }
+        });
+      });
+    } catch (error) {
+      console.error(error);
+      list.innerHTML = '<p class="muted">승인된 교사 목록을 불러오지 못했습니다.</p>';
+    }
+  }
+
   function ensureControls() {
     if (controls?.isConnected) return;
     controls = document.createElement('div');
@@ -251,12 +372,14 @@
 
   ensureControls();
   loadAliases()
-    .then(() => {
+    .then(async () => {
       renderAliasStatus();
       applyFilter();
+      ensureAccessPanel();
+      await loadApprovedTeachers();
     })
     .catch((error) => {
-      console.error('시간표 이름 별칭을 불러오지 못했습니다.', error);
+      console.error('교사 대시보드 보조 기능을 불러오지 못했습니다.', error);
       renderAliasStatus();
       applyFilter();
     });
