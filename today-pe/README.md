@@ -22,6 +22,8 @@
 - 학생 자동 갱신 + 오프라인 fallback
 - Supabase Auth 교사 로그인
 - 승인 대기 / 학교 관리자 승인 / 최초 관리자 운영자 승인
+- 학교 관리자의 승인된 교사 권한 회수
+- 권한 회수 후 열린 교사 탭 주기적 세션 재검증
 - 여러 체육교사 + 공동 담당 + 변경 이력
 - 컴시간 담당교사 이름 별칭 매핑
 - 학교 위치 기반 현재 날씨 + 교시별 예보 + 우천 주의
@@ -68,6 +70,7 @@
 
 학교 관리자
 - 같은 학교 승인 대기 교사 승인
+- 승인된 일반 교사 권한 회수
 - 공동 담당 관리
 
 최초 학교 관리자
@@ -88,6 +91,25 @@ approvalRoute=operator     → 아직 학교 관리자 없음, 운영자 승인 
 approvalRoute=school_admin → 기존 학교 관리자 승인 필요
 approvalRoute=approved     → 승인 완료
 ```
+
+### 교사 권한 회수
+
+학교 관리자는 승인된 다른 교사의 접근 권한을 회수할 수 있습니다.
+
+```text
+revoke_teacher_access(uuid)
+```
+
+동작:
+
+```text
+대상 교사 verified=false
+→ 컴시간 별칭 제거
+→ lesson_teachers에서 대상 교사 연결 제거
+→ 단독 담당이던 수업은 현재 학교 관리자에게 자동 인계
+```
+
+자기 자신의 관리자 권한은 화면/RPC에서 회수할 수 없습니다. 권한이 회수된 교사가 이미 교사 화면을 열어둔 경우 `teacher-session-guard.js`가 약 60초마다, 앱 재진입 시, 온라인 복구 시 권한을 다시 확인해 로그인 화면으로 보냅니다. 핵심 교사용 RPC도 호출마다 `verified=true`를 다시 검사합니다.
 
 ## 학생 개인정보 최소화
 
@@ -116,6 +138,7 @@ approvalRoute=approved     → 승인 완료
 010_secure_initial_admin_bootstrap
 011_student_privacy_minimization
 012_teacher_approval_context
+013_teacher_access_revocation
 ```
 
 새 프로젝트 적용 순서:
@@ -133,6 +156,7 @@ approvalRoute=approved     → 승인 완료
 10. supabase/010_secure_initial_admin_bootstrap.sql
 11. supabase/011_student_privacy_minimization.sql
 12. supabase/012_teacher_approval_context.sql
+13. supabase/013_teacher_access_revocation.sql
 ```
 
 주요 테이블:
@@ -195,7 +219,7 @@ GET /api/health
 - `student-privacy.js`
 - `student-resilience.js`
 
-학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다.
+학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다. 서비스워커 캐시는 보안 어댑터까지 포함한 `oneul-pe-v5` 정적 자산 세트를 사용합니다.
 
 ## 자동 검증
 
@@ -206,6 +230,7 @@ JS 문법
 HTML ↔ JS 연결
 Auth / RLS / 최초 관리자 bootstrap
 교사 승인 경로
+교사 권한 회수 / 열린 세션 재검증
 공동 담당 / 변경 이력 / 학생 알림
 컴시간 교사명 별칭
 학생 개인정보 최소화
