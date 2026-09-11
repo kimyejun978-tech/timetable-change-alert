@@ -3,6 +3,7 @@ const {
   readJSON,
   writeJSON,
   escapeHTML,
+  schoolCodeOf,
   searchSchools,
   renderSchoolButton,
   localDateKey,
@@ -15,6 +16,7 @@ const Backend = window.OneulPEBackend;
 
 let studentProfile = readJSON(localStorage, STORAGE.studentProfile, null);
 let lessons = [];
+let notifications = [];
 let selectedSchool = null;
 let loadingLessons = false;
 let todaySchedule = { known: false, rows: [], provider: null };
@@ -29,6 +31,10 @@ const schoolResults = document.getElementById('studentSchoolResults');
 const classForm = document.getElementById('studentClassForm');
 const schoolSummary = document.getElementById('studentSchoolSummary');
 const refreshButton = document.getElementById('refreshStudentButton');
+const notificationList = document.getElementById('studentNotificationList');
+const notificationStatus = document.getElementById('studentNotificationStatus');
+const unreadBadge = document.getElementById('studentUnreadBadge');
+const markAllReadButton = document.getElementById('markAllNotificationsReadButton');
 
 function showOnly(view) {
   setupView.classList.toggle('hidden', view !== 'setup');
@@ -49,6 +55,25 @@ function weekRange() {
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
   return { monday, friday, from: localDateKey(monday), to: localDateKey(friday) };
+}
+
+function studentReadKey() {
+  if (!studentProfile?.school) return '';
+  return `${schoolCodeOf(studentProfile.school)}:${studentProfile.grade}:${studentProfile.classNo}`;
+}
+
+function readNotificationIds() {
+  const state = readJSON(localStorage, STORAGE.studentReadChanges, {});
+  return new Set(state[studentReadKey()] || []);
+}
+
+function markNotificationIdsRead(ids) {
+  const key = studentReadKey();
+  if (!key) return;
+  const state = readJSON(localStorage, STORAGE.studentReadChanges, {});
+  const next = new Set([...(state[key] || []), ...ids]);
+  state[key] = [...next].slice(-300);
+  writeJSON(localStorage, STORAGE.studentReadChanges, state);
 }
 
 async function loadLessons() {
@@ -72,6 +97,27 @@ async function loadLessons() {
     loadingLessons = false;
     refreshButton.disabled = false;
   }
+}
+
+async function loadNotifications() {
+  notificationStatus.textContent = '최근 변경사항을 확인하고 있어요…';
+  try {
+    const from = new Date(Date.now() - (14 * 24 * 60 * 60 * 1000)).toISOString();
+    notifications = await Backend.listStudentNotifications({
+      school: studentProfile.school,
+      grade: studentProfile.grade,
+      classNo: studentProfile.classNo,
+      from,
+    });
+    notificationStatus.textContent = notifications.length
+      ? '최근 14일 동안 선생님이 등록하거나 바꾼 체육 안내입니다.'
+      : '최근 변경된 체육 안내가 없습니다.';
+  } catch (error) {
+    console.error(error);
+    notifications = [];
+    notificationStatus.textContent = '변경 알림을 불러오지 못했습니다.';
+  }
+  renderNotifications();
 }
 
 function normalizeDirectNeis(result) {
@@ -202,7 +248,7 @@ async function renderStudentHome() {
     </section>
   `;
 
-  await Promise.all([loadLessons(), loadTodaySchedule()]);
+  await Promise.all([loadLessons(), loadTodaySchedule(), loadNotifications()]);
   const today = localDateKey();
   const todayLessons = lessons
     .filter((lesson) => lesson.date === today)
@@ -325,6 +371,103 @@ function renderWeekLessons() {
   }
 }
 
+function snapshotValue(snapshot, key, alternateKey = null) {
+  if (!snapshot) return undefined;
+  if (snapshot[key] !== undefined) return snapshot[key];
+  if (alternateKey && snapshot[alternateKey] !== undefined) return snapshot[alternateKey];
+  return undefined;
+}
+
+function describeNotification(change) {
+  const before = change.beforeData || {};
+  const after = change.afterData || {};
+  const current = change.afterData || change.beforeData || {};
+  const activity = snapshotValue(current, 'activity') || '체육';
+  const location = snapshotValue(current, 'location') || '';
+
+  if (change.changeType === 'create') {
+    return {
+      title: `${change.period}교시 체육 안내가 등록됐어요`,
+      detail: [activity, location].filter(Boolean).join(' · '),
+    };
+  }
+  if (change.changeType === 'delete') {
+    return {
+      title: `${change.period}교시 체육 안내가 취소됐어요`,
+      detail: [activity, location].filter(Boolean).join(' · '),
+    };
+  }
+
+  const diffs = [];
+  const beforeActivity = snapshotValue(before, 'activity');
+  const afterActivity = snapshotValue(after, 'activity');
+  const beforeLocation = snapshotValue(before, 'location');
+  const afterLocation = snapshotValue(after, 'location');
+  const beforePeriod = snapshotValue(before, 'period');
+  const afterPeriod = snapshotValue(after, 'period');
+  const beforeDate = snapshotValue(before, 'date', 'lesson_date');
+  const afterDate = snapshotValue(after, 'date', 'lesson_date');
+  const beforeEquipment = snapshotValue(before, 'equipment') || [];
+  const afterEquipment = snapshotValue(after, 'equipment') || [];
+  const beforeNotice = snapshotValue(before, 'notice') || '';
+  const afterNotice = snapshotValue(after, 'notice') || '';
+
+  if (beforeActivity !== afterActivity) diffs.push(`종목 ${beforeActivity || '미정'} → ${afterActivity || '미정'}`);
+  if (beforeLocation !== afterLocation) diffs.push(`장소 ${beforeLocation || '미정'} → ${afterLocation || '미정'}`);
+  if (String(beforePeriod || '') !== String(afterPeriod || '')) diffs.push(`교시 ${beforePeriod || '-'} → ${afterPeriod || '-'}`);
+  if (beforeDate !== afterDate) diffs.push(`날짜 ${beforeDate || '-'} → ${afterDate || '-'}`);
+  if (JSON.stringify(beforeEquipment) !== JSON.stringify(afterEquipment)) diffs.push('준비물이 변경됐어요');
+  if (beforeNotice !== afterNotice) diffs.push('추가 안내가 변경됐어요');
+
+  return {
+    title: `${change.period}교시 체육 안내가 변경됐어요`,
+    detail: diffs.length ? diffs.join(' · ') : [activity, location].filter(Boolean).join(' · '),
+  };
+}
+
+function formatNotificationTime(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function renderNotifications() {
+  const readIds = readNotificationIds();
+  const unread = notifications.filter((item) => !readIds.has(item.id));
+  unreadBadge.textContent = String(unread.length);
+  unreadBadge.classList.toggle('hidden', unread.length === 0);
+  markAllReadButton.disabled = notifications.length === 0 || unread.length === 0;
+  notificationList.innerHTML = '';
+
+  if (!notifications.length) {
+    notificationList.innerHTML = '<p class="muted">새로운 변경 알림이 없습니다.</p>';
+    return;
+  }
+
+  notifications.slice(0, 20).forEach((change) => {
+    const description = describeNotification(change);
+    const unreadClass = readIds.has(change.id) ? '' : ' unread';
+    const item = document.createElement('article');
+    item.className = `notification-item${unreadClass}`;
+    item.innerHTML = `
+      <span class="notification-dot"></span>
+      <div class="notification-content">
+        <strong>${escapeHTML(description.title)}</strong>
+        ${description.detail ? `<p>${escapeHTML(description.detail)}</p>` : ''}
+        <small>${escapeHTML(change.changedByName || '체육교사')} · ${escapeHTML(formatNotificationTime(change.createdAt))}</small>
+      </div>
+    `;
+    notificationList.appendChild(item);
+  });
+}
+
+markAllReadButton.addEventListener('click', () => {
+  markNotificationIdsRead(notifications.map((item) => item.id));
+  renderNotifications();
+  showToast('변경 알림을 모두 읽음 처리했어요.');
+});
+
 refreshButton.addEventListener('click', async () => {
   await renderStudentHome();
   showToast('최신 정보를 불러왔어요.');
@@ -336,10 +479,12 @@ document.getElementById('studentResetButton').addEventListener('click', () => {
   studentProfile = null;
   selectedSchool = null;
   lessons = [];
+  notifications = [];
   todaySchedule = { known: false, rows: [], provider: null };
   classForm.classList.add('hidden');
   schoolResults.innerHTML = '';
   schoolSearchStatus.textContent = '';
+  notificationList.innerHTML = '';
   schoolBadge.textContent = '학생 포털';
   showOnly('setup');
 });
