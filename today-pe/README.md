@@ -26,6 +26,7 @@
 - 학교 관리자의 승인된 일반 교사 권한 회수
 - 학교 관리자 계정은 다른 학교 관리자가 회수할 수 없음
 - 권한 회수 후 열린 교사 탭 주기적 세션 재검증
+- 수업 삭제는 담당교사 여부 + 현재 소속 학교를 DB에서 함께 검증
 - 여러 체육교사 + 공동 담당 + 변경 이력
 - 컴시간 담당교사 이름 별칭 매핑
 - 학교 위치 기반 현재 날씨 + 교시별 예보 + 우천 주의
@@ -137,6 +138,10 @@ revoke_teacher_access(uuid)
 
 권한이 회수된 교사가 이미 교사 화면을 열어둔 경우 `teacher-session-guard.js`가 약 60초마다, 앱 재진입 시, 온라인 복구 시 권한을 다시 확인해 로그인 화면으로 보냅니다. 핵심 교사용 RPC도 호출마다 `verified=true`를 다시 검사합니다.
 
+### 수업 삭제 방어
+
+`delete_pe_lesson`은 단순히 `lesson_teachers`에 현재 교사가 연결돼 있는지만 보지 않습니다. 현재 로그인 교사가 승인 상태이고, 그 교사의 `school_id`와 삭제 대상 `pe_lessons.school_id`가 일치해야 삭제됩니다.
+
 ## 학생 개인정보 최소화
 
 학생에게 교사 개인 식별정보가 필요하지 않아 학생용 데이터 경계에서 제거합니다.
@@ -167,6 +172,7 @@ revoke_teacher_access(uuid)
 013_teacher_access_revocation
 014_protect_school_admin_revocation
 015_lock_teacher_school_membership
+016_scope_lesson_delete_to_school
 ```
 
 새 프로젝트 적용 순서:
@@ -187,6 +193,7 @@ revoke_teacher_access(uuid)
 13. supabase/013_teacher_access_revocation.sql
 14. supabase/014_protect_school_admin_revocation.sql
 15. supabase/015_lock_teacher_school_membership.sql
+16. supabase/016_scope_lesson_delete_to_school.sql
 ```
 
 주요 테이블:
@@ -262,6 +269,7 @@ Auth / RLS / 최초 관리자 bootstrap
 교사 승인 경로
 교사 학교 소속 잠금
 교사 권한 회수 / 관리자 보호 / 열린 세션 재검증
+수업 삭제의 소속 학교 범위 검증
 공동 담당 / 변경 이력 / 학생 알림
 컴시간 교사명 별칭
 학생 개인정보 최소화
