@@ -22,7 +22,8 @@
 - 학생 자동 갱신 + 오프라인 fallback
 - Supabase Auth 교사 로그인
 - 승인 대기 / 학교 관리자 승인 / 최초 관리자 운영자 승인
-- 학교 관리자의 승인된 교사 권한 회수
+- 학교 관리자의 승인된 일반 교사 권한 회수
+- 학교 관리자 계정은 다른 학교 관리자가 회수할 수 없음
 - 권한 회수 후 열린 교사 탭 주기적 세션 재검증
 - 여러 체육교사 + 공동 담당 + 변경 이력
 - 컴시간 담당교사 이름 별칭 매핑
@@ -71,6 +72,7 @@
 학교 관리자
 - 같은 학교 승인 대기 교사 승인
 - 승인된 일반 교사 권한 회수
+- 다른 school_admin 권한은 변경 불가
 - 공동 담당 관리
 
 최초 학교 관리자
@@ -94,7 +96,7 @@ approvalRoute=approved     → 승인 완료
 
 ### 교사 권한 회수
 
-학교 관리자는 승인된 다른 교사의 접근 권한을 회수할 수 있습니다.
+학교 관리자는 승인된 **일반 교사**의 접근 권한을 회수할 수 있습니다.
 
 ```text
 revoke_teacher_access(uuid)
@@ -109,7 +111,17 @@ revoke_teacher_access(uuid)
 → 단독 담당이던 수업은 현재 학교 관리자에게 자동 인계
 ```
 
-자기 자신의 관리자 권한은 화면/RPC에서 회수할 수 없습니다. 권한이 회수된 교사가 이미 교사 화면을 열어둔 경우 `teacher-session-guard.js`가 약 60초마다, 앱 재진입 시, 온라인 복구 시 권한을 다시 확인해 로그인 화면으로 보냅니다. 핵심 교사용 RPC도 호출마다 `verified=true`를 다시 검사합니다.
+보호 규칙:
+
+```text
+자기 자신의 권한 회수 불가
+다른 school_admin 권한 회수 불가
+학교가 다른 교사 회수 불가
+```
+
+다른 관리자 권한 변경은 운영자 영역으로 남겨둡니다. UI에서도 다른 학교 관리자 행에는 회수 버튼 대신 `운영자만 변경`을 표시합니다.
+
+권한이 회수된 교사가 이미 교사 화면을 열어둔 경우 `teacher-session-guard.js`가 약 60초마다, 앱 재진입 시, 온라인 복구 시 권한을 다시 확인해 로그인 화면으로 보냅니다. 핵심 교사용 RPC도 호출마다 `verified=true`를 다시 검사합니다.
 
 ## 학생 개인정보 최소화
 
@@ -139,6 +151,7 @@ revoke_teacher_access(uuid)
 011_student_privacy_minimization
 012_teacher_approval_context
 013_teacher_access_revocation
+014_protect_school_admin_revocation
 ```
 
 새 프로젝트 적용 순서:
@@ -157,6 +170,7 @@ revoke_teacher_access(uuid)
 11. supabase/011_student_privacy_minimization.sql
 12. supabase/012_teacher_approval_context.sql
 13. supabase/013_teacher_access_revocation.sql
+14. supabase/014_protect_school_admin_revocation.sql
 ```
 
 주요 테이블:
@@ -171,7 +185,7 @@ push_subscriptions
 teacher_timetable_aliases
 ```
 
-`pe_lessons`는 Supabase Realtime publication에 등록되어 있습니다.
+`pe_lessons`는 Supabase Realtime publication에 등록되어 있습니다. 동일 학교·날짜·학년·반·교시 슬롯은 DB UNIQUE 제약으로 중복 등록되지 않습니다.
 
 ## 배포
 
@@ -219,7 +233,7 @@ GET /api/health
 - `student-privacy.js`
 - `student-resilience.js`
 
-학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다. 서비스워커 캐시는 보안 어댑터까지 포함한 `oneul-pe-v5` 정적 자산 세트를 사용합니다.
+학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다. 서비스워커 캐시는 보안 어댑터까지 포함한 `oneul-pe-v6` 정적 자산 세트를 사용합니다.
 
 ## 자동 검증
 
@@ -230,7 +244,7 @@ JS 문법
 HTML ↔ JS 연결
 Auth / RLS / 최초 관리자 bootstrap
 교사 승인 경로
-교사 권한 회수 / 열린 세션 재검증
+교사 권한 회수 / 관리자 보호 / 열린 세션 재검증
 공동 담당 / 변경 이력 / 학생 알림
 컴시간 교사명 별칭
 학생 개인정보 최소화
@@ -242,7 +256,7 @@ Playwright Chromium E2E
 실제 컴시간/NEIS 학교 검색
 ```
 
-Playwright는 `/api/public-config`를 빈 설정으로 mock해 로컬 데모 모드로 실행하므로 실제 Supabase DB를 오염시키지 않습니다.
+Playwright는 `/api/public-config`를 빈 설정으로 mock해 로컬 데모 모드로 실행하므로 실제 Supabase DB를 오염시키지 않습니다. 현재 E2E에는 두 번째 교사 가입 → 승인 → 로그인 → 권한 회수 → 열린 탭 자동 로그아웃 흐름도 포함됩니다.
 
 ## 남은 외부 작업
 
