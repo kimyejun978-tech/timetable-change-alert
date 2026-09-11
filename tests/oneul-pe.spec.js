@@ -200,5 +200,28 @@ test('학생-교사 핵심 흐름과 교사 승인/회수가 브라우저에서 
   // localStorage 변경 이벤트를 받은 열린 탭의 세션 가드가 자동 로그아웃시킨다.
   await expect(secondTeacher).toHaveURL(/teacher-login\.html$/, { timeout: 5000 });
 
+  // 다른 학교 관리자 계정은 회수 UI 자체가 노출되지 않는다.
+  await teacher.evaluate(() => {
+    const key = window.OneulPE.STORAGE.teacherProfiles;
+    const profiles = window.OneulPE.readJSON(localStorage, key, []);
+    const currentAdmin = profiles.find((item) => item.role === 'school_admin' && item.verified !== false);
+    profiles.push({
+      id: 'peer-admin-e2e',
+      name: '박관리',
+      email: 'admin2@example.com',
+      school: currentAdmin.school,
+      schoolCode: currentAdmin.schoolCode,
+      passwordHash: 'not-used-in-test',
+      role: 'school_admin',
+      verified: true,
+      createdAt: new Date().toISOString(),
+    });
+    window.OneulPE.writeJSON(localStorage, key, profiles);
+  });
+  await teacher.locator('[data-access-refresh]').click();
+  const peerAdminRow = approvedList.locator('.teacher-lesson-item').filter({ hasText: '박관리' });
+  await expect(peerAdminRow).toContainText('운영자만 변경');
+  await expect(peerAdminRow.locator('[data-revoke-teacher]')).toHaveCount(0);
+
   await context.close();
 });
