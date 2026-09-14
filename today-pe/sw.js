@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oneul-pe-v8';
+const CACHE_NAME = 'oneul-pe-v9';
 const STATIC_ASSETS = [
   './',
   './index.html',
