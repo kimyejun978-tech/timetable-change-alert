@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oneul-pe-v11';
+const CACHE_NAME = 'oneul-pe-v12';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -44,6 +44,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+async function networkFirst(request, fallbackRequest = request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  } catch {
+    return (await caches.match(fallbackRequest)) || caches.match('./index.html');
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -53,15 +66,16 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(async () => (await caches.match(request)) || caches.match('./index.html'))
-    );
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  const networkSensitive = request.destination === 'script'
+    || request.destination === 'style'
+    || url.pathname.endsWith('.webmanifest');
+
+  if (networkSensitive) {
+    event.respondWith(networkFirst(request));
     return;
   }
 
