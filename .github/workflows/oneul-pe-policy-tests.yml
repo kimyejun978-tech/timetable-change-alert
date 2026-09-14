@@ -5,6 +5,7 @@ on:
     branches: [feat/oneul-pe-mvp]
     paths:
       - 'api/**'
+      - 'today-pe/supabase/019_harden_teacher_registration_metadata.sql'
       - 'tests/health-api.test.js'
       - 'tests/push-policy.test.js'
       - 'tests/timetable-api.test.js'
@@ -15,6 +16,7 @@ on:
     branches: [main]
     paths:
       - 'api/**'
+      - 'today-pe/supabase/019_harden_teacher_registration_metadata.sql'
       - 'tests/health-api.test.js'
       - 'tests/push-policy.test.js'
       - 'tests/timetable-api.test.js'
@@ -46,6 +48,14 @@ jobs:
           node --check tests/push-policy.test.js
           node --check tests/timetable-api.test.js
           node --check tests/schools-api.test.js
+
+      - name: Teacher registration metadata policy
+        run: |
+          grep -q "on conflict (neis_office_code, neis_school_code) do nothing" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          grep -q "SCHOOL_CHANGE_REQUIRES_OPERATOR" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          grep -q "INVALID_TEACHER_NAME" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          grep -q "INVALID_SCHOOL_CODE" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          if grep -q "do update set" today-pe/supabase/019_harden_teacher_registration_metadata.sql; then exit 1; fi
 
       - name: Health API readiness contract
         run: node tests/health-api.test.js
