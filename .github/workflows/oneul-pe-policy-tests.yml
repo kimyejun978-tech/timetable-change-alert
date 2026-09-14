@@ -1,0 +1,46 @@
+name: Validate 오늘체육 API Policies
+
+on:
+  push:
+    branches: [feat/oneul-pe-mvp]
+    paths:
+      - 'api/**'
+      - 'tests/health-api.test.js'
+      - 'tests/push-policy.test.js'
+      - 'package.json'
+      - '.github/workflows/oneul-pe-policy-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'tests/health-api.test.js'
+      - 'tests/push-policy.test.js'
+      - 'package.json'
+      - '.github/workflows/oneul-pe-policy-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  policy-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-package-lock
+
+      - name: Syntax check
+        run: |
+          node --check api/health.js
+          node --check api/push/push-policy.js
+          node --check api/push/send.js
+          node --check api/push/subscribe.js
+          node --check tests/health-api.test.js
+          node --check tests/push-policy.test.js
+
+      - name: Health API readiness contract
+        run: node tests/health-api.test.js
+
+      - name: Web Push delivery policy
+        run: node tests/push-policy.test.js
