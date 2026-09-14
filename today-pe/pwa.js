@@ -1,5 +1,6 @@
 window.OneulPEPWA = (() => {
   const config = window.ONEUL_PE_CONFIG || {};
+  const PUSH_PREF_KEY = 'oneulPe.pushEnabled.v1';
   let deferredInstallPrompt = null;
   let registrationPromise = Promise.resolve(null);
   let pushSubscribed = false;
@@ -30,6 +31,17 @@ window.OneulPEPWA = (() => {
     return document.getElementById('enableNotificationsButton');
   }
 
+  function pushPreference() {
+    const raw = localStorage.getItem(PUSH_PREF_KEY);
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    return null;
+  }
+
+  function setPushPreference(enabled) {
+    localStorage.setItem(PUSH_PREF_KEY, enabled ? '1' : '0');
+  }
+
   function currentStudentProfile() {
     const api = window.OneulPE;
     if (!api?.STORAGE?.studentProfile || !api?.readJSON) return null;
@@ -49,20 +61,26 @@ window.OneulPEPWA = (() => {
       button.classList.add('hidden');
       return;
     }
+
     button.classList.remove('hidden');
-    if (pushSubscribed) {
-      button.textContent = '푸시 켜짐';
-      button.disabled = true;
-    } else if (Notification.permission === 'granted') {
-      button.textContent = config.VAPID_PUBLIC_KEY ? '푸시 연결 중' : '알림 켜짐';
-      button.disabled = true;
-    } else if (Notification.permission === 'denied') {
+    if (Notification.permission === 'denied') {
       button.textContent = '알림 차단됨';
       button.disabled = true;
-    } else {
-      button.textContent = '알림 켜기';
-      button.disabled = false;
+      return;
     }
+    if (pushSubscribed) {
+      button.textContent = '푸시 끄기';
+      button.disabled = false;
+      return;
+    }
+    if (Notification.permission === 'granted' && !config.VAPID_PUBLIC_KEY) {
+      button.textContent = '알림 권한 켜짐';
+      button.disabled = true;
+      return;
+    }
+
+    button.textContent = '알림 켜기';
+    button.disabled = false;
   }
 
   function urlBase64ToUint8Array(base64String) {
@@ -88,6 +106,11 @@ window.OneulPEPWA = (() => {
     const permission = await Notification.requestPermission();
     updateNotificationButton();
     return permission;
+  }
+
+  async function getPushSubscription() {
+    const registration = await registrationPromise;
+    return registration?.pushManager?.getSubscription?.() || null;
   }
 
   async function subscribePushForStudent(profile) {
@@ -122,6 +145,7 @@ window.OneulPEPWA = (() => {
     });
     if (!response.ok) throw new Error(`PUSH_SUBSCRIBE_HTTP_${response.status}`);
 
+    setPushPreference(true);
     pushSubscribed = true;
     updateNotificationButton();
     return { status: 'subscribed' };
@@ -141,9 +165,14 @@ window.OneulPEPWA = (() => {
   }
 
   async function unsubscribePush() {
-    const registration = await registrationPromise;
-    const subscription = await registration?.pushManager?.getSubscription?.();
-    if (!subscription) return false;
+    const subscription = await getPushSubscription();
+    setPushPreference(false);
+
+    if (!subscription) {
+      pushSubscribed = false;
+      updateNotificationButton();
+      return true;
+    }
 
     const serialized = subscription.toJSON?.() || {};
     const auth = String(serialized.keys?.auth || '');
@@ -181,30 +210,72 @@ window.OneulPEPWA = (() => {
     return true;
   }
 
+  async function initializePushState() {
+    if (!('Notification' in window) || Notification.permission !== 'granted' || !config.VAPID_PUBLIC_KEY) {
+      updateNotificationButton();
+      return;
+    }
+
+    const existing = await getPushSubscription();
+    const preference = pushPreference();
+
+    if (preference === false) {
+      if (existing) await unsubscribePush();
+      updateNotificationButton();
+      return;
+    }
+
+    if (existing) {
+      pushSubscribed = true;
+      updateNotificationButton();
+      // 기존 구독을 서버와 다시 동기화합니다. 과거 버전에서 만들어진 구독도 canonical 학교 정보로 갱신됩니다.
+      if (currentStudentProfile()) await subscribeCurrentStudent();
+      return;
+    }
+
+    if (preference === true && currentStudentProfile()) {
+      await subscribeCurrentStudent();
+      return;
+    }
+
+    updateNotificationButton();
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     updateInstallButton();
     updateNotificationButton();
     installButton()?.addEventListener('click', requestInstall);
     notificationButton()?.addEventListener('click', async () => {
-      const permission = await ensureNotificationPermission();
-      window.dispatchEvent(new CustomEvent('oneulpe:notification-permission', { detail: { permission } }));
-      if (permission === 'granted') {
-        if (config.VAPID_PUBLIC_KEY) {
-          const result = await subscribeCurrentStudent();
-          window.OneulPE?.showToast?.(result.status === 'subscribed'
-            ? '체육 변경 푸시 알림을 켰어요.'
-            : '알림 권한은 켰지만 푸시 연결은 아직 준비 중이에요.');
-        } else {
-          window.OneulPE?.showToast?.('브라우저 알림을 켰어요.');
+      const button = notificationButton();
+      if (button) button.disabled = true;
+
+      try {
+        if (pushSubscribed) {
+          await unsubscribePush();
+          window.OneulPE?.showToast?.('체육 변경 푸시 알림을 껐어요.');
+          return;
         }
-      } else if (permission === 'denied') {
-        window.OneulPE?.showToast?.('브라우저에서 알림 권한이 차단되어 있어요.');
+
+        const permission = await ensureNotificationPermission();
+        window.dispatchEvent(new CustomEvent('oneulpe:notification-permission', { detail: { permission } }));
+        if (permission === 'granted') {
+          if (config.VAPID_PUBLIC_KEY) {
+            const result = await subscribeCurrentStudent();
+            window.OneulPE?.showToast?.(result.status === 'subscribed'
+              ? '체육 변경 푸시 알림을 켰어요.'
+              : '알림 권한은 켰지만 푸시 연결은 아직 준비 중이에요.');
+          } else {
+            window.OneulPE?.showToast?.('브라우저 알림 권한을 켰어요.');
+          }
+        } else if (permission === 'denied') {
+          window.OneulPE?.showToast?.('브라우저에서 알림 권한이 차단되어 있어요.');
+        }
+      } finally {
+        updateNotificationButton();
       }
     });
 
-    if (Notification.permission === 'granted' && config.VAPID_PUBLIC_KEY && currentStudentProfile()) {
-      await subscribeCurrentStudent();
-    }
+    await initializePushState();
   });
 
   return {
@@ -217,5 +288,6 @@ window.OneulPEPWA = (() => {
     showLocalNotification,
     canNotify: () => 'Notification' in window && Notification.permission === 'granted',
     pushConfigured: () => Boolean(config.VAPID_PUBLIC_KEY),
+    pushEnabledByUser: () => pushPreference() === true,
   };
 })();
