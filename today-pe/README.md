@@ -31,7 +31,7 @@
 - 컴시간 담당교사 이름 별칭 매핑
 - 학교 위치 기반 현재 날씨 + 교시별 예보 + 우천 주의
 - Supabase Realtime
-- PWA / Web Push 경로
+- PWA / Web Push
 - 학생 교사정보 최소화
 - Playwright Chromium 핵심 E2E
 
@@ -152,6 +152,39 @@ revoke_teacher_access(uuid)
 - 익명화 후 `student-resilience.js`가 오프라인 캐시 저장
 - 학생 UI는 일반 표현 `체육교사` 사용
 
+## Web Push 보안 경계
+
+학생 Push 구독과 교사 Push 발송은 브라우저 입력을 그대로 신뢰하지 않습니다.
+
+### 학생 구독
+
+```text
+학생 브라우저
+→ 교육청 코드 + 학교 코드 + 학년/반 + PushSubscription만 전송
+→ 서버가 NEIS에서 학교를 다시 확인
+→ canonical 학교 정보로만 schools 저장/갱신
+```
+
+클라이언트가 보낸 학교명·주소는 DB에 쓰지 않습니다. 구독 해제 시에는 `endpoint`만으로 삭제하지 않고 해당 PushSubscription의 `auth` 키도 함께 일치해야 합니다.
+
+### 교사 발송
+
+```text
+교사 수업 저장/삭제 성공
+→ 실제 lessonId로 /api/push/send 호출
+→ Supabase JWT 검증
+→ teacher_profiles.verified 확인
+→ 최근 5분 이내 lesson_changes에서 같은 변경자/학교/수업인지 확인
+→ 등록/수정은 lesson_teachers 담당 연결 재확인
+→ 변경이력 snapshot으로 대상 반과 알림 문구 생성
+```
+
+클라이언트가 임의 `title`, `body`, 학년/반을 보내도 Push 내용/대상을 결정하는 근거로 사용하지 않습니다.
+
+`lesson_changes.push_claimed_at / push_sent_at`으로 하나의 변경이 여러 번 발송되지 않게 처리합니다. 동시에 같은 변경에 대한 요청이 들어오면 한 요청만 claim할 수 있고, 서버 처리 실패 시 claim을 해제해 재시도할 수 있습니다.
+
+수정으로 대상 반이 바뀐 경우 기존 반과 새 반을 모두 계산해, 기존 반에도 안내가 변경됐음을 알립니다.
+
 ## Supabase 마이그레이션
 
 실제 `oneul-pe` 프로젝트에 다음 마이그레이션이 적용되어 있습니다.
@@ -173,6 +206,8 @@ revoke_teacher_access(uuid)
 014_protect_school_admin_revocation
 015_lock_teacher_school_membership
 016_scope_lesson_delete_to_school
+017_push_delivery_idempotency
+018_remove_redundant_push_index
 ```
 
 새 프로젝트 적용 순서:
@@ -194,6 +229,8 @@ revoke_teacher_access(uuid)
 14. supabase/014_protect_school_admin_revocation.sql
 15. supabase/015_lock_teacher_school_membership.sql
 16. supabase/016_scope_lesson_delete_to_school.sql
+17. supabase/017_push_delivery_idempotency.sql
+18. supabase/018_remove_redundant_push_index.sql
 ```
 
 주요 테이블:
@@ -256,7 +293,7 @@ GET /api/health
 - `student-privacy.js`
 - `student-resilience.js`
 
-학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다. 서비스워커 캐시는 최신 보안 어댑터까지 포함한 `oneul-pe-v7` 정적 자산 세트를 사용합니다.
+학생 안내/알림은 최대 7일, 당일 시간표는 최대 8시간 제한적 fallback 캐시를 사용하며 교사 식별정보 제거 후 캐시됩니다. 서비스워커 캐시는 최신 Push 보안 계약을 포함한 `oneul-pe-v8` 정적 자산 세트를 사용합니다.
 
 ## 자동 검증
 
@@ -273,6 +310,7 @@ Auth / RLS / 최초 관리자 bootstrap
 공동 담당 / 변경 이력 / 학생 알림
 컴시간 교사명 별칭
 학생 개인정보 최소화
+Web Push 서버 권한/학교 canonical 검증/중복 발송 방지
 PWA / Web Push wiring
 배포 config fallback / health
 컴시간 → NEIS 우선순위
@@ -290,7 +328,7 @@ Playwright는 `/api/public-config`를 빈 설정으로 mock해 로컬 데모 모
 2. 서버 전용 환경변수 등록
 3. 최초 실제 교사 가입 → 운영자 최초 관리자 승인
 4. 교사/학생 서로 다른 기기에서 공유 검증
-5. 실제 Web Push 수신 검증
+5. 실제 Web Push 수신/구독 해제/중복 방지 검증
 ```
 
 자세한 순서는 `DEPLOY.md`를 참고합니다.
