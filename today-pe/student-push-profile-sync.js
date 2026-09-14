@@ -6,6 +6,11 @@
   const PUSH_PREF_KEY = 'oneulPe.pushEnabled.v1';
   if (!form || !PWA || !API) return;
 
+  const baseCanNotify = typeof PWA.canNotify === 'function'
+    ? PWA.canNotify.bind(PWA)
+    : () => false;
+  PWA.canNotify = () => baseCanNotify() && localStorage.getItem(PUSH_PREF_KEY) !== '0';
+
   form.addEventListener('submit', () => {
     // student.js가 같은 submit 이벤트에서 localStorage 프로필을 먼저 갱신합니다.
     // 그 뒤 기존 Push endpoint를 새 학교/학년/반으로 다시 upsert합니다.
