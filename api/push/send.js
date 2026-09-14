@@ -13,11 +13,18 @@ function serverClient() {
   });
 }
 
+function validVapidSubject(value) {
+  const subject = String(value || '').trim();
+  return /^mailto:[^\s@]+@[^\s@]+$/i.test(subject) || /^https:\/\/[^\s]+$/i.test(subject);
+}
+
 function configureVapid() {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
-  if (!publicKey || !privateKey) throw new Error('VAPID_NOT_CONFIGURED');
+  const subject = String(process.env.VAPID_SUBJECT || '').trim();
+  if (!publicKey || !privateKey || !validVapidSubject(subject)) {
+    throw new Error('VAPID_NOT_CONFIGURED');
+  }
   webpush.setVapidDetails(subject, publicKey, privateKey);
 }
 
