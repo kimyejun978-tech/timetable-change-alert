@@ -1,6 +1,10 @@
 import Comcigan from 'parse-comcigan';
 
 const PE_KEYWORDS = ['체육', '운동과 건강', '스포츠 생활', '스포츠', '체육탐구', '체육 탐구'];
+const MAX_SCHOOL_NAME_LENGTH = 100;
+const MAX_REGION_LENGTH = 60;
+const MAX_GRADES = 6;
+const MAX_CLASSES_PER_GRADE = 50;
 
 function isPeSubject(subject = '') {
   const normalized = String(subject).replace(/\s+/g, ' ').trim();
@@ -13,13 +17,21 @@ function normalizeRegion(value = '') {
     .trim();
 }
 
-function ymdToDate(value) {
-  if (!/^\d{8}$/.test(value || '')) return new Date();
-  return new Date(
-    Number(value.slice(0, 4)),
-    Number(value.slice(4, 6)) - 1,
-    Number(value.slice(6, 8)),
-  );
+function parseYmd(value) {
+  const text = String(value || '').trim();
+  if (!text) return new Date();
+  if (!/^\d{8}$/.test(text)) return null;
+
+  const year = Number(text.slice(0, 4));
+  const month = Number(text.slice(4, 6));
+  const day = Number(text.slice(6, 8));
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) return null;
+  return date;
 }
 
 function toYmd(date) {
@@ -27,6 +39,14 @@ function toYmd(date) {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}${m}${d}`;
+}
+
+function validOfficeCode(value) {
+  return /^[A-Z0-9]{2,20}$/i.test(String(value || ''));
+}
+
+function validSchoolCode(value) {
+  return /^\d{5,20}$/.test(String(value || ''));
 }
 
 async function fromComcigan({ schoolName, region, date }) {
@@ -39,7 +59,8 @@ async function fromComcigan({ schoolName, region, date }) {
       || requestedRegion.includes(normalizeRegion(school.region))
   ));
   const sameName = schools.find((school) => school.name === schoolName);
-  const school = exact || sameName || schools[0];
+  const school = exact || sameName;
+  if (!school) throw new Error('COMCIGAN_EXACT_SCHOOL_NOT_FOUND');
 
   const comci = new Comcigan(school.code);
   const info = await comci.schoolInfo();
@@ -56,9 +77,14 @@ async function fromComcigan({ schoolName, region, date }) {
 
   const rows = [];
   const classesByGrade = Array.isArray(info.classes) ? info.classes : [];
+  const gradeCount = Math.min(classesByGrade.length, MAX_GRADES);
 
-  for (let grade = 1; grade <= classesByGrade.length; grade += 1) {
-    const classCount = Number(classesByGrade[grade - 1] || 0);
+  for (let grade = 1; grade <= gradeCount; grade += 1) {
+    const rawClassCount = Number(classesByGrade[grade - 1] || 0);
+    const classCount = Number.isFinite(rawClassCount)
+      ? Math.max(0, Math.min(Math.trunc(rawClassCount), MAX_CLASSES_PER_GRADE))
+      : 0;
+
     for (let classNum = 1; classNum <= classCount; classNum += 1) {
       const weekly = await comci.timetable({ grade, classNum });
       const day = weekly?.[weekday - 1];
@@ -93,7 +119,9 @@ async function fromComcigan({ schoolName, region, date }) {
 }
 
 async function fromNeis({ officeCode, schoolCode, date }) {
-  if (!officeCode || !schoolCode) throw new Error('NEIS_SCHOOL_CODE_MISSING');
+  if (!validOfficeCode(officeCode) || !validSchoolCode(schoolCode)) {
+    throw new Error('NEIS_SCHOOL_CODE_INVALID');
+  }
   const params = new URLSearchParams({
     Type: 'json',
     pIndex: '1',
@@ -122,6 +150,11 @@ async function fromNeis({ officeCode, schoolCode, date }) {
       originalSubject: '',
       originalTeacher: '',
     }))
+    .filter((row) => (
+      Number.isInteger(row.grade) && row.grade >= 1 && row.grade <= MAX_GRADES
+      && Number.isInteger(row.classNo) && row.classNo >= 1 && row.classNo <= MAX_CLASSES_PER_GRADE
+      && Number.isInteger(row.period) && row.period >= 1 && row.period <= 20
+    ))
     .sort((a, b) => a.period - b.period || a.grade - b.grade || a.classNo - b.classNo);
 
   return {
@@ -145,9 +178,17 @@ export default async function handler(req, res) {
   const region = String(req.query.region || '').trim();
   const officeCode = String(req.query.officeCode || '').trim();
   const schoolCode = String(req.query.schoolCode || '').trim();
-  const date = ymdToDate(String(req.query.date || ''));
+  const date = parseYmd(req.query.date);
 
-  if (!schoolName) return res.status(400).json({ error: 'SCHOOL_NAME_REQUIRED' });
+  if (!schoolName || schoolName.length > MAX_SCHOOL_NAME_LENGTH) {
+    return res.status(400).json({ error: 'INVALID_SCHOOL_NAME' });
+  }
+  if (region.length > MAX_REGION_LENGTH) {
+    return res.status(400).json({ error: 'INVALID_REGION' });
+  }
+  if (!date) {
+    return res.status(400).json({ error: 'INVALID_DATE' });
+  }
 
   const failures = [];
   try {
