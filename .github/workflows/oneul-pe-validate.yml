@@ -159,13 +159,19 @@ jobs:
           grep -q "lesson_teachers" api/push/send.js
           grep -q "before_data" api/push/send.js
           grep -q "after_data" api/push/send.js
+          grep -q "VAPID_SUBJECT" api/push/send.js
           grep -q "fetchCanonicalSchool" api/push/subscribe.js
           grep -Fq ".eq('auth', auth)" api/push/subscribe.js
           grep -q "subscription.endpoint, auth" today-pe/pwa.js
+          grep -q "PUSH_PREF_KEY" today-pe/pwa.js
+          grep -q "setPushPreference(false)" today-pe/pwa.js
+          grep -q "푸시 끄기" today-pe/pwa.js
+          grep -q "vapidSubject" api/health.js
+          grep -q "VAPID_SUBJECT" .env.example
           if grep -q "SCHUL_NM" today-pe/pwa.js; then exit 1; fi
           if grep -q "body.title" api/push/send.js; then exit 1; fi
           if grep -q "body.body" api/push/send.js; then exit 1; fi
-          echo 'OK: Push derives authority/content from server-side canonical data'
+          echo 'OK: Push derives authority/content from server-side canonical data and respects user preference'
 
       - name: Check collaboration, PWA and deployment wiring
         run: |
@@ -180,7 +186,7 @@ jobs:
           grep -q "teacher-session-guard.js" today-pe/sw.js
           grep -q "teacher-approval-context.js" today-pe/sw.js
           grep -q "teacher-admin-protection.js" today-pe/sw.js
-          grep -q "oneul-pe-v8" today-pe/sw.js
+          grep -q "oneul-pe-v9" today-pe/sw.js
           grep -q "SUPABASE_SERVICE_ROLE_KEY" api/push/send.js
           grep -q "VAPID_PRIVATE_KEY" api/push/send.js
           grep -q "/api/schools" today-pe/shared.js
