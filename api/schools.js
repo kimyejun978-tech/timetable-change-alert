@@ -17,6 +17,7 @@ export default async function handler(req, res) {
 
   const query = String(req.query.q || '').trim();
   if (query.length < 2) return res.status(400).json({ error: 'QUERY_TOO_SHORT' });
+  if (query.length > 100) return res.status(400).json({ error: 'QUERY_TOO_LONG' });
 
   const params = new URLSearchParams({
     Type: 'json',
