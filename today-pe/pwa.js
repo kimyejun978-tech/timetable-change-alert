@@ -114,9 +114,6 @@ window.OneulPEPWA = (() => {
         school: {
           officeCode: profile.school.ATPT_OFCDC_SC_CODE,
           schoolCode: profile.school.SD_SCHUL_CODE,
-          name: profile.school.SCHUL_NM,
-          region: profile.school.LCTN_SC_NM || '',
-          address: profile.school.ORG_RDNMA || '',
         },
         grade: Number(profile.grade),
         classNo: Number(profile.classNo),
@@ -147,15 +144,22 @@ window.OneulPEPWA = (() => {
     const registration = await registrationPromise;
     const subscription = await registration?.pushManager?.getSubscription?.();
     if (!subscription) return false;
-    try {
-      await fetch('/api/push/subscribe', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint: subscription.endpoint }),
-      });
-    } catch (error) {
-      console.warn('push unsubscribe backend failed', error);
+
+    const serialized = subscription.toJSON?.() || {};
+    const auth = String(serialized.keys?.auth || '');
+    if (auth) {
+      try {
+        const response = await fetch('/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: subscription.endpoint, auth }),
+        });
+        if (!response.ok) console.warn('push unsubscribe backend failed', response.status);
+      } catch (error) {
+        console.warn('push unsubscribe backend failed', error);
+      }
     }
+
     await subscription.unsubscribe();
     pushSubscribed = false;
     updateNotificationButton();
