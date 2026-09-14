@@ -92,6 +92,7 @@ jobs:
               'today-pe/supabase/015_lock_teacher_school_membership.sql',
               'today-pe/supabase/016_scope_lesson_delete_to_school.sql',
               'today-pe/supabase/017_push_delivery_idempotency.sql',
+              'today-pe/supabase/018_remove_redundant_push_index.sql',
               'api/timetable.js', 'api/schools.js', 'api/public-config.js', 'api/health.js',
               'api/push/subscribe.js', 'api/push/send.js',
               'tests/oneul-pe.spec.js', 'playwright.config.js', 'vercel.json', '.env.example', 'package.json',
@@ -135,6 +136,7 @@ jobs:
           grep -q "DELETE_FORBIDDEN" today-pe/supabase/016_scope_lesson_delete_to_school.sql
           grep -q "push_claimed_at" today-pe/supabase/017_push_delivery_idempotency.sql
           grep -q "push_sent_at" today-pe/supabase/017_push_delivery_idempotency.sql
+          grep -q "drop index if exists public.idx_lesson_changes_push_delivery" today-pe/supabase/018_remove_redundant_push_index.sql
           grep -q "data-revoke-teacher" today-pe/teacher-dashboard-controls.js
           grep -q "setInterval(checkTeacherAccess, 60_000)" today-pe/teacher-session-guard.js
           grep -q "getTeacherSession" today-pe/teacher-session-guard.js
