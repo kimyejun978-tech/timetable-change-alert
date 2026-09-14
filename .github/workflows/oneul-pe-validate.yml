@@ -91,6 +91,7 @@ jobs:
               'today-pe/supabase/014_protect_school_admin_revocation.sql',
               'today-pe/supabase/015_lock_teacher_school_membership.sql',
               'today-pe/supabase/016_scope_lesson_delete_to_school.sql',
+              'today-pe/supabase/017_push_delivery_idempotency.sql',
               'api/timetable.js', 'api/schools.js', 'api/public-config.js', 'api/health.js',
               'api/push/subscribe.js', 'api/push/send.js',
               'tests/oneul-pe.spec.js', 'playwright.config.js', 'vercel.json', '.env.example', 'package.json',
@@ -132,6 +133,8 @@ jobs:
           grep -q "set name = p_name" today-pe/supabase/015_lock_teacher_school_membership.sql
           grep -q "tp.school_id = pl.school_id" today-pe/supabase/016_scope_lesson_delete_to_school.sql
           grep -q "DELETE_FORBIDDEN" today-pe/supabase/016_scope_lesson_delete_to_school.sql
+          grep -q "push_claimed_at" today-pe/supabase/017_push_delivery_idempotency.sql
+          grep -q "push_sent_at" today-pe/supabase/017_push_delivery_idempotency.sql
           grep -q "data-revoke-teacher" today-pe/teacher-dashboard-controls.js
           grep -q "setInterval(checkTeacherAccess, 60_000)" today-pe/teacher-session-guard.js
           grep -q "getTeacherSession" today-pe/teacher-session-guard.js
@@ -142,7 +145,25 @@ jobs:
           grep -q "changedByName: ''" today-pe/student-privacy.js
           if grep -q "'teacher_name'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
           if grep -q "'teacher_id'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
-          echo 'OK: auth, school lock, school-scoped delete, approval, revocation, admin protection, aliases and student privacy boundaries'
+          echo 'OK: auth, school lock, scoped delete, push idempotency, approval, revocation and privacy boundaries'
+
+      - name: Check hardened Web Push contract
+        run: |
+          grep -q "lessonId" today-pe/push-client.js
+          grep -q "resolveRecentAuthorizedChange" api/push/send.js
+          grep -q "claimChange" api/push/send.js
+          grep -q "PUSH_ALREADY_CLAIMED_OR_SENT" api/push/send.js
+          grep -q "changed_by" api/push/send.js
+          grep -q "lesson_teachers" api/push/send.js
+          grep -q "before_data" api/push/send.js
+          grep -q "after_data" api/push/send.js
+          grep -q "fetchCanonicalSchool" api/push/subscribe.js
+          grep -Fq ".eq('auth', auth)" api/push/subscribe.js
+          grep -q "subscription.endpoint, auth" today-pe/pwa.js
+          if grep -q "SCHUL_NM" today-pe/pwa.js; then exit 1; fi
+          if grep -q "body.title" api/push/send.js; then exit 1; fi
+          if grep -q "body.body" api/push/send.js; then exit 1; fi
+          echo 'OK: Push derives authority/content from server-side canonical data'
 
       - name: Check collaboration, PWA and deployment wiring
         run: |
@@ -157,7 +178,7 @@ jobs:
           grep -q "teacher-session-guard.js" today-pe/sw.js
           grep -q "teacher-approval-context.js" today-pe/sw.js
           grep -q "teacher-admin-protection.js" today-pe/sw.js
-          grep -q "oneul-pe-v7" today-pe/sw.js
+          grep -q "oneul-pe-v8" today-pe/sw.js
           grep -q "SUPABASE_SERVICE_ROLE_KEY" api/push/send.js
           grep -q "VAPID_PRIVATE_KEY" api/push/send.js
           grep -q "/api/schools" today-pe/shared.js
@@ -184,7 +205,7 @@ jobs:
           for page in index.html student.html teacher-login.html teacher.html; do
             curl --fail --silent "http://127.0.0.1:4173/today-pe/$page" | grep -q '오늘체육'
           done
-          for file in shared.js backend.js student-privacy.js teacher-school-lock.js teacher-approval-context.js teacher-session-guard.js teacher-admin-protection.js pwa.js sw.js; do
+          for file in shared.js backend.js student-privacy.js teacher-school-lock.js teacher-approval-context.js teacher-session-guard.js teacher-admin-protection.js pwa.js push-client.js sw.js; do
             curl --fail --silent "http://127.0.0.1:4173/today-pe/$file" >/dev/null
           done
           echo 'OK: static smoke test'
