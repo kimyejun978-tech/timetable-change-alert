@@ -5,6 +5,7 @@ const MAX_SCHOOL_NAME_LENGTH = 100;
 const MAX_REGION_LENGTH = 60;
 const MAX_GRADES = 6;
 const MAX_CLASSES_PER_GRADE = 50;
+const COMCIGAN_CONCURRENCY = 4;
 
 function isPeSubject(subject = '') {
   const normalized = String(subject).replace(/\s+/g, ' ').trim();
@@ -49,6 +50,24 @@ function validSchoolCode(value) {
   return /^\d{5,20}$/.test(String(value || ''));
 }
 
+async function runWithConcurrency(items, limit, worker) {
+  let nextIndex = 0;
+  const output = new Array(items.length);
+  const workerCount = Math.min(Math.max(1, limit), items.length || 1);
+
+  async function runWorker() {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      output[index] = await worker(items[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+  return output;
+}
+
 async function fromComcigan({ schoolName, region, date }) {
   const schools = await Comcigan.search(schoolName);
   if (!schools.length) throw new Error('COMCIGAN_SCHOOL_NOT_FOUND');
@@ -75,20 +94,28 @@ async function fromComcigan({ schoolName, region, date }) {
     };
   }
 
-  const rows = [];
   const classesByGrade = Array.isArray(info.classes) ? info.classes : [];
   const gradeCount = Math.min(classesByGrade.length, MAX_GRADES);
+  const classTargets = [];
 
   for (let grade = 1; grade <= gradeCount; grade += 1) {
     const rawClassCount = Number(classesByGrade[grade - 1] || 0);
     const classCount = Number.isFinite(rawClassCount)
       ? Math.max(0, Math.min(Math.trunc(rawClassCount), MAX_CLASSES_PER_GRADE))
       : 0;
-
     for (let classNum = 1; classNum <= classCount; classNum += 1) {
+      classTargets.push({ grade, classNum });
+    }
+  }
+
+  const rowGroups = await runWithConcurrency(
+    classTargets,
+    COMCIGAN_CONCURRENCY,
+    async ({ grade, classNum }) => {
       const weekly = await comci.timetable({ grade, classNum });
       const day = weekly?.[weekday - 1];
       const items = day?.items || [];
+      const rows = [];
 
       items.forEach((item, index) => {
         if (!isPeSubject(item.subject)) return;
@@ -104,9 +131,11 @@ async function fromComcigan({ schoolName, region, date }) {
           originalTeacher: item.original?.teacher || '',
         });
       });
-    }
-  }
+      return rows;
+    },
+  );
 
+  const rows = rowGroups.flat();
   rows.sort((a, b) => a.period - b.period || a.grade - b.grade || a.classNo - b.classNo);
 
   return {
