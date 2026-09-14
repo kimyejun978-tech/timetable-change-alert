@@ -12,6 +12,11 @@ function hasBrowserSupabaseFallback() {
   }
 }
 
+function validVapidSubject(value) {
+  const subject = String(value || '').trim();
+  return /^mailto:[^\s@]+@[^\s@]+$/i.test(subject) || /^https:\/\/[^\s]+$/i.test(subject);
+}
+
 export default function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -20,12 +25,16 @@ export default function handler(req, res) {
 
   const supabasePublicEnv = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
   const supabasePublicFallback = hasBrowserSupabaseFallback();
+  const vapidKeys = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+  const vapidSubject = validVapidSubject(process.env.VAPID_SUBJECT);
   const checks = {
     supabasePublic: supabasePublicEnv || supabasePublicFallback,
     supabasePublicEnv,
     supabasePublicFallback,
     supabaseServer: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
-    vapid: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+    vapidKeys,
+    vapidSubject,
+    vapid: vapidKeys && vapidSubject,
     neis: Boolean(process.env.NEIS_API_KEY),
   };
 
