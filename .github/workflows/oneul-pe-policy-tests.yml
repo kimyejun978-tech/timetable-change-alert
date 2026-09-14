@@ -8,6 +8,7 @@ on:
       - 'tests/health-api.test.js'
       - 'tests/push-policy.test.js'
       - 'tests/timetable-api.test.js'
+      - 'tests/schools-api.test.js'
       - 'package.json'
       - '.github/workflows/oneul-pe-policy-tests.yml'
   pull_request:
@@ -17,6 +18,7 @@ on:
       - 'tests/health-api.test.js'
       - 'tests/push-policy.test.js'
       - 'tests/timetable-api.test.js'
+      - 'tests/schools-api.test.js'
       - 'package.json'
       - '.github/workflows/oneul-pe-policy-tests.yml'
   workflow_dispatch:
@@ -35,6 +37,7 @@ jobs:
       - name: Syntax check
         run: |
           node --check api/health.js
+          node --check api/schools.js
           node --check api/timetable.js
           node --check api/push/push-policy.js
           node --check api/push/send.js
@@ -42,6 +45,7 @@ jobs:
           node --check tests/health-api.test.js
           node --check tests/push-policy.test.js
           node --check tests/timetable-api.test.js
+          node --check tests/schools-api.test.js
 
       - name: Health API readiness contract
         run: node tests/health-api.test.js
@@ -51,3 +55,6 @@ jobs:
 
       - name: Timetable API input policy
         run: node tests/timetable-api.test.js
+
+      - name: School search API input policy
+        run: node tests/schools-api.test.js
