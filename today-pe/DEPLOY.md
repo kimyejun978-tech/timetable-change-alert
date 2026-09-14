@@ -2,7 +2,7 @@
 
 ## 1. Supabase
 
-현재 `oneul-pe` 실제 프로젝트에는 001~016 마이그레이션이 적용되어 있습니다. 새 프로젝트에서는 아래 순서대로 적용합니다.
+현재 `oneul-pe` 실제 프로젝트에는 001~018 마이그레이션이 적용되어 있습니다. 새 프로젝트에서는 아래 순서대로 적용합니다.
 
 ```text
 1. supabase/schema.sql
@@ -21,6 +21,8 @@
 14. supabase/014_protect_school_admin_revocation.sql
 15. supabase/015_lock_teacher_school_membership.sql
 16. supabase/016_scope_lesson_delete_to_school.sql
+17. supabase/017_push_delivery_idempotency.sql
+18. supabase/018_remove_redundant_push_index.sql
 ```
 
 권한 확인:
@@ -36,6 +38,7 @@ revoke_teacher_access authenticated 전용 + 함수 내부 school_admin 검사
 school_admin 대상 권한 회수는 CANNOT_REVOKE_ADMIN으로 차단
 register_teacher_profile은 기존 계정의 school_id/role/verified 변경 불가
 delete_pe_lesson은 승인된 담당교사 + 동일 school_id 모두 검사
+lesson_changes에 push_claimed_at / push_sent_at 존재
 pe_lessons Realtime publication 포함
 ```
 
@@ -239,23 +242,49 @@ Push까지 준비되면:
 
 교사 A/B 화면을 동시에 열고 한쪽이 수업을 변경했을 때 다른 화면이 Realtime으로 갱신되는지 확인합니다.
 
-## 15. Web Push
+## 15. Web Push 보안/실기기 테스트
 
-학생:
+### 학생 구독
+
+학생이 `알림 켜기`를 누르면:
 
 ```text
-알림 켜기
-→ PushManager 구독
+PushManager 구독
 → /api/push/subscribe
+→ 클라이언트는 교육청 코드 + 학교 코드만 학교 식별자로 전송
+→ 서버가 NEIS에서 학교를 다시 검증
+→ canonical 학교 정보로 push_subscriptions 연결
 ```
 
-교사:
+확인:
 
 ```text
-수업 등록/수정/삭제
-→ /api/push/send
-→ 해당 학교·학년·반 학생만 Push 수신
+임의 학교명/주소를 클라이언트에서 바꿔도 DB 학교정보가 오염되지 않음
+잘못된 교육청/학교 코드는 400 또는 검증 실패
+구독 해제는 endpoint + Push auth 키가 모두 맞아야 서버 레코드 삭제
 ```
+
+### 교사 발송
+
+```text
+수업 등록/수정/삭제 성공
+→ 실제 lessonId로 /api/push/send
+→ 교사 JWT + verified 검사
+→ 최근 5분 lesson_changes에서 같은 changed_by / school / lesson 확인
+→ 등록·수정이면 lesson_teachers 담당 연결 재확인
+→ before/after snapshot으로 대상 반과 알림 문구를 서버가 생성
+```
+
+확인:
+
+```text
+클라이언트가 임의 grade/class/title/body를 보내도 발송 대상/문구에 사용되지 않음
+같은 lesson_changes를 반복 호출하면 PUSH_ALREADY_CLAIMED_OR_SENT
+수정으로 반이 바뀌면 기존 반과 새 반 모두 알림 대상 계산
+실패한 서버 처리에서는 claim이 풀려 재시도 가능
+```
+
+실제 폰 2대 이상에서 등록/수정/삭제/구독해제까지 확인합니다.
 
 ## 16. 오프라인
 
@@ -267,6 +296,8 @@ PWA 정적 UI 로딩
 유효한 당일 시간표 캐시
 오프라인 저장본 표시
 ```
+
+서비스워커 캐시는 `oneul-pe-v8`이어야 합니다.
 
 ## 17. 대회 데모
 
@@ -283,6 +314,7 @@ PWA 정적 UI 로딩
 10. 공동 담당/별칭/권한 분리 소개
 11. 학생 개인정보 최소화 소개
 12. 관리자 승인/권한 회수/관리자 보호/학교 소속 잠금 소개
+13. Push는 실제 변경이력 기준으로만 발송됨을 소개
 ```
 
 ## 18. 자동 검증
@@ -298,6 +330,7 @@ Auth / RLS / 최초 관리자 보안
 공동 담당 / 변경 이력
 컴시간 별칭
 학생 개인정보 최소화
+Web Push canonical 학교 검증 / 담당·변경이력 검증 / 중복 발송 방지
 PWA / Push wiring
 배포 config fallback / health
 컴시간 → NEIS
