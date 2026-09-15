@@ -1,63 +1,66 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>기본 시간표 - 시간표 변경 알리미</title>
-
-  <!-- 이 페이지는 시간표 저장 기능만 필요해서 data.js만 불러온다 -->
-  <script src="../js/data.js" defer></script>
+  <meta name="theme-color" content="#17345b">
+  <title>시간표 관리 - 오늘</title>
   <link rel="stylesheet" href="../css/style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+  <script src="../js/data.js" defer></script>
+  <script src="../js/main.js" defer></script>
 </head>
-
 <body>
-  <!-- 페이지 이동 메뉴는 나중에 헷갈리지 않게 순서를 전부 통일함 -->
-  <header>
-    <h1>시간표 변경 알리미</h1>
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="주요 메뉴">
+      <div class="brand-block">
+        <a class="brand" href="index.html">오늘</a>
+        <p class="brand-school" id="sidebar_school">학교를 설정해 주세요</p>
+      </div>
+      <nav class="side-nav">
+        <a href="index.html">오늘</a>
+        <a class="active" href="basic.html">시간표</a>
+        <a href="result.html">변경 내역</a>
+        <a href="settings.html">설정</a>
+      </nav>
+      <p class="sidebar-caption">학교의 필요한 정보를 한곳에서.</p>
+    </aside>
 
-    <nav>
-      <a href="index.html">홈</a>
-      <a href="basic.html" class="active">기본 시간표</a>
-      <a href="settings.html">설정</a>
-      <a href="result.html">비교 결과</a>
-    </nav>
-  </header>
+    <main class="page-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">시간표</p>
+          <h1>기본 시간표 관리</h1>
+          <p class="page-subtitle">현재는 브라우저에 저장하며, 이후 학교 시간표 데이터와 연결할 예정입니다.</p>
+        </div>
+      </header>
 
-  <main>
-    <!-- 어떤 요일의 시간표를 적을 건지 먼저 선택하는 영역 -->
-    <section class="select_day">  
-      <h2>요일 선택</h2>
+      <section class="panel form-panel">
+        <div class="form-section">
+          <h2>요일 선택</h2>
+          <p class="form-description">요일별 기본 시간표를 입력해 두면 홈에서 오늘 시간표로 표시됩니다.</p>
+          <div class="day-selector" aria-label="요일 선택">
+            <button type="button" class="day-btn mon">월요일</button>
+            <button type="button" class="day-btn tues">화요일</button>
+            <button type="button" class="day-btn wednes">수요일</button>
+            <button type="button" class="day-btn thurs">목요일</button>
+            <button type="button" class="day-btn fri active">금요일</button>
+          </div>
+        </div>
 
-      <button type="button" class="day-btn mon">월요일</button>
-      <button type="button" class="day-btn tues">화요일</button>
-      <button type="button" class="day-btn wednes">수요일</button>
-      <button type="button" class="day-btn thurs">목요일</button>
-      <!-- 처음 화면은 금요일로 정해놔서 active도 금요일에 미리 붙임 -->
-      <button type="button" class="day-btn fri active">금요일</button>
-    </section>
+        <div class="form-section" id="scheduleArea">
+          <h2>금요일 기본 시간표</h2>
+          <p class="form-description">과목명만 먼저 입력합니다. 수업 장소는 다음 단계에서 별도 설정 기능으로 연결합니다.</p>
+          <div class="schedule-input-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
 
-    <!-- 요일 버튼을 누르면 data.js에서 이 부분 안쪽을 통째로 바꾼다 -->
-    <section id="scheduleArea">
-      <h2>금요일 기본 시간표</h2>
-
-      <form>
-        <!-- 교시는 7교시까지만 입력하도록 일단 고정했다 -->
-        <label>1교시 <input type="text" id="c1" placeholder="1교시 과목 입력" value=""></label>
-        <label>2교시 <input type="text" id="c2" placeholder="2교시 과목 입력" value=""></label>
-        <label>3교시 <input type="text" id="c3" placeholder="3교시 과목 입력" value=""></label>
-        <label>4교시 <input type="text" id="c4" placeholder="4교시 과목 입력" value=""></label>
-        <label>5교시 <input type="text" id="c5" placeholder="5교시 과목 입력" value=""></label>
-        <label>6교시 <input type="text" id="c6" placeholder="6교시 과목 입력" value=""></label>
-        <label>7교시 <input type="text" id="c7" placeholder="7교시 과목 입력" value=""></label>
-
-        <!-- submit으로 하면 새로고침돼서 그냥 button으로 사용 -->
-        <button type="button" class="store_slt">기본 시간표 저장</button>
-      </form>
-    </section>
-  </main>
-
+  <nav class="mobile-nav" aria-label="모바일 주요 메뉴">
+    <a href="index.html">오늘</a>
+    <a class="active" href="basic.html">시간표</a>
+    <a href="result.html">변경</a>
+    <a href="settings.html">설정</a>
+  </nav>
 </body>
 </html>
