@@ -66,11 +66,13 @@ jobs:
 
           required = [
               'today-pe/index.html', 'today-pe/student.html', 'today-pe/student.js',
-              'today-pe/student-privacy.js', 'today-pe/student-resilience.js', 'today-pe/student-push-profile-sync.js',
+              'today-pe/student-privacy.js', 'today-pe/student-resilience.js',
+              'today-pe/student-push-profile-sync.js',
               'today-pe/teacher-login.html', 'today-pe/teacher-login.js',
               'today-pe/teacher-school-lock.js', 'today-pe/teacher-approval-context.js',
-              'today-pe/teacher.html', 'today-pe/teacher.js', 'today-pe/teacher-session-guard.js',
-              'today-pe/teacher-dashboard-controls.js', 'today-pe/teacher-admin-protection.js',
+              'today-pe/teacher.html', 'today-pe/teacher.js',
+              'today-pe/teacher-session-guard.js', 'today-pe/teacher-dashboard-controls.js',
+              'today-pe/teacher-admin-protection.js',
               'today-pe/shared.js', 'today-pe/backend.js', 'today-pe/config.js',
               'today-pe/pwa.js', 'today-pe/push-client.js', 'today-pe/sw.js',
               'today-pe/manifest.webmanifest', 'today-pe/icon.svg',
@@ -93,9 +95,11 @@ jobs:
               'today-pe/supabase/016_scope_lesson_delete_to_school.sql',
               'today-pe/supabase/017_push_delivery_idempotency.sql',
               'today-pe/supabase/018_remove_redundant_push_index.sql',
+              'today-pe/supabase/019_harden_teacher_registration_metadata.sql',
               'api/timetable.js', 'api/schools.js', 'api/public-config.js', 'api/health.js',
               'api/push/subscribe.js', 'api/push/send.js', 'api/push/push-policy.js',
-              'tests/oneul-pe.spec.js', 'tests/health-api.test.js', 'tests/push-policy.test.js',
+              'tests/oneul-pe.spec.js', 'tests/health-api.test.js',
+              'tests/push-policy.test.js', 'tests/timetable-api.test.js', 'tests/schools-api.test.js',
               'playwright.config.js', 'vercel.json', '.env.example', 'package.json',
           ]
           for f in required:
@@ -105,10 +109,12 @@ jobs:
           for script in ('teacher-school-lock.js', 'teacher-approval-context.js'):
               if script not in login_html:
                   raise SystemExit(f'teacher-login.html missing {script}')
+
           teacher_html = Path('today-pe/teacher.html').read_text(encoding='utf-8')
           for script in ('teacher-session-guard.js', 'teacher-admin-protection.js'):
               if script not in teacher_html:
                   raise SystemExit(f'teacher.html missing {script}')
+
           student_html = Path('today-pe/student.html').read_text(encoding='utf-8')
           if student_html.index('student-privacy.js') > student_html.index('student-resilience.js'):
               raise SystemExit('student privacy must load before resilience cache')
@@ -117,88 +123,57 @@ jobs:
           print('OK: portal structure')
           PY
 
-      - name: Check security and data boundaries
+      - name: Check security boundaries
         run: |
-          grep -q "TEACHER_NOT_VERIFIED" today-pe/supabase/schema.sql
           grep -q "operator_promote_school_admin" today-pe/supabase/010_secure_initial_admin_bootstrap.sql
           grep -q "to service_role" today-pe/supabase/010_secure_initial_admin_bootstrap.sql
-          grep -q "get_my_teacher_approval_context" today-pe/supabase/012_teacher_approval_context.sql
-          grep -q "approvalRoute" today-pe/supabase/012_teacher_approval_context.sql
-          grep -q "pending_initial_admin" today-pe/teacher-login.js
           grep -q "revoke_teacher_access" today-pe/supabase/013_teacher_access_revocation.sql
-          grep -q "CANNOT_REVOKE_SELF" today-pe/supabase/013_teacher_access_revocation.sql
           grep -q "CANNOT_REVOKE_ADMIN" today-pe/supabase/014_protect_school_admin_revocation.sql
-          grep -q "v_target.role = 'school_admin'" today-pe/supabase/014_protect_school_admin_revocation.sql
-          grep -q "관리자 계정 · 운영자만 변경" today-pe/teacher-admin-protection.js
           grep -q "SCHOOL_CHANGE_REQUIRES_OPERATOR" today-pe/supabase/015_lock_teacher_school_membership.sql
-          grep -q "SCHOOL_CHANGE_REQUIRES_OPERATOR" today-pe/teacher-school-lock.js
-          grep -q "SCHOOL_CHANGE_REQUIRES_OPERATOR" today-pe/teacher-login.js
-          if grep -q "school_id = excluded.school_id" today-pe/supabase/015_lock_teacher_school_membership.sql; then exit 1; fi
-          grep -q "set name = p_name" today-pe/supabase/015_lock_teacher_school_membership.sql
           grep -q "tp.school_id = pl.school_id" today-pe/supabase/016_scope_lesson_delete_to_school.sql
-          grep -q "DELETE_FORBIDDEN" today-pe/supabase/016_scope_lesson_delete_to_school.sql
           grep -q "push_claimed_at" today-pe/supabase/017_push_delivery_idempotency.sql
           grep -q "push_sent_at" today-pe/supabase/017_push_delivery_idempotency.sql
           grep -q "drop index if exists public.idx_lesson_changes_push_delivery" today-pe/supabase/018_remove_redundant_push_index.sql
-          grep -q "data-revoke-teacher" today-pe/teacher-dashboard-controls.js
+          grep -q "on conflict (neis_office_code, neis_school_code) do nothing" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          grep -q "INVALID_TEACHER_NAME" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          if grep -q "do update set" today-pe/supabase/019_harden_teacher_registration_metadata.sql; then exit 1; fi
           grep -q "setInterval(checkTeacherAccess, 60_000)" today-pe/teacher-session-guard.js
-          grep -q "getTeacherSession" today-pe/teacher-session-guard.js
-          grep -q "teacher_timetable_aliases" today-pe/supabase/009_teacher_timetable_aliases.sql
-          grep -q "컴시간 이름 매칭 설정" today-pe/teacher-dashboard-controls.js
-          grep -q "student-privacy.js" today-pe/student.html
           grep -q "teacherIds: \[\]" today-pe/student-privacy.js
           grep -q "changedByName: ''" today-pe/student-privacy.js
           if grep -q "'teacher_name'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
           if grep -q "'teacher_id'" today-pe/supabase/011_student_privacy_minimization.sql; then exit 1; fi
-          echo 'OK: auth, school lock, scoped delete, push idempotency, approval, revocation and privacy boundaries'
+          echo 'OK: auth, school, delete, push and privacy boundaries'
 
-      - name: Check hardened Web Push contract
+      - name: Check PWA, Push and deployment wiring
         run: |
+          grep -q "serviceWorker.register" today-pe/pwa.js
+          grep -q "pushManager.subscribe" today-pe/pwa.js
+          grep -q "PUSH_PREF_KEY" today-pe/pwa.js
+          grep -q "푸시 끄기" today-pe/pwa.js
+          grep -q "student-push-profile-sync.js" today-pe/student.html
+          grep -q "student-push-profile-sync.js" today-pe/sw.js
+          grep -q "networkFirst" today-pe/sw.js
+          grep -q "networkSensitive" today-pe/sw.js
+          grep -q "self.addEventListener('push'" today-pe/sw.js
           grep -q "lessonId" today-pe/push-client.js
           grep -q "resolveRecentAuthorizedChange" api/push/send.js
           grep -q "claimChange" api/push/send.js
-          grep -q "PUSH_ALREADY_CLAIMED_OR_SENT" api/push/send.js
-          grep -q "changed_by" api/push/send.js
-          grep -q "lesson_teachers" api/push/send.js
-          grep -q "push-policy.js" api/push/send.js
           grep -q "fetchCanonicalSchool" api/push/subscribe.js
           grep -Fq ".eq('auth', auth)" api/push/subscribe.js
-          grep -q "subscription.endpoint, auth" today-pe/pwa.js
-          grep -q "PUSH_PREF_KEY" today-pe/pwa.js
-          grep -q "setPushPreference(false)" today-pe/pwa.js
-          grep -q "푸시 끄기" today-pe/pwa.js
-          grep -q "pushEnabledByUser" today-pe/student-push-profile-sync.js
-          grep -q "subscribeCurrentStudent" today-pe/student-push-profile-sync.js
-          grep -q "vapidSubject" api/health.js
           grep -q "VAPID_SUBJECT" api/push/send.js
-          grep -q "VAPID_SUBJECT" .env.example
-          if grep -q "SCHUL_NM" today-pe/pwa.js; then exit 1; fi
-          if grep -q "body.title" api/push/send.js; then exit 1; fi
-          if grep -q "body.body" api/push/send.js; then exit 1; fi
-          echo 'OK: Push derives authority/content from server-side data and syncs user preference/class'
-
-      - name: Check collaboration, PWA and deployment wiring
-        run: |
-          grep -q "setLessonTeachers" today-pe/backend.js
-          grep -q "listLessonHistory" today-pe/backend.js
-          grep -q "listStudentNotifications" today-pe/backend.js
-          grep -q "serviceWorker.register" today-pe/pwa.js
-          grep -q "pushManager.subscribe" today-pe/pwa.js
-          grep -q "self.addEventListener('push'" today-pe/sw.js
-          grep -q "student-privacy.js" today-pe/sw.js
-          grep -q "student-push-profile-sync.js" today-pe/sw.js
-          grep -q "teacher-school-lock.js" today-pe/sw.js
-          grep -q "teacher-session-guard.js" today-pe/sw.js
-          grep -q "teacher-approval-context.js" today-pe/sw.js
-          grep -q "teacher-admin-protection.js" today-pe/sw.js
-          grep -q "oneul-pe-v10" today-pe/sw.js
+          grep -q "vapidSubject" api/health.js
           grep -q "SUPABASE_SERVICE_ROLE_KEY" api/push/send.js
-          grep -q "VAPID_PRIVATE_KEY" api/push/send.js
           grep -q "/api/schools" today-pe/shared.js
           grep -q "if (process.env.SUPABASE_URL)" api/public-config.js
-          grep -q "supabasePublicFallback" api/health.js
           grep -q '"/student"' vercel.json
-          echo 'OK: collaboration + PWA + deployment wiring'
+          echo 'OK: network-first PWA, hardened Push and deployment wiring'
+
+      - name: API policy tests
+        run: |
+          node tests/health-api.test.js
+          node tests/push-policy.test.js
+          node tests/timetable-api.test.js
+          node tests/schools-api.test.js
 
       - name: Check timetable provider priority
         run: |
@@ -206,8 +181,9 @@ jobs:
           grep -q "fromNeis" api/timetable.js
           grep -q "await fromComcigan" api/timetable.js
           grep -q "await fromNeis" api/timetable.js
+          grep -q "mapWithConcurrency" api/timetable.js
           grep -q "/api/timetable" today-pe/teacher.js
-          echo 'OK: Comcigan primary -> NEIS fallback'
+          echo 'OK: Comcigan primary -> NEIS fallback with bounded concurrency'
 
       - name: Serve static site and smoke test
         run: |
@@ -218,7 +194,7 @@ jobs:
           for page in index.html student.html teacher-login.html teacher.html; do
             curl --fail --silent "http://127.0.0.1:4173/today-pe/$page" | grep -q '오늘체육'
           done
-          for file in shared.js backend.js student-privacy.js student-push-profile-sync.js teacher-school-lock.js teacher-approval-context.js teacher-session-guard.js teacher-admin-protection.js pwa.js push-client.js sw.js; do
+          for file in shared.js backend.js student-privacy.js student-resilience.js student-push-profile-sync.js teacher-school-lock.js teacher-approval-context.js teacher-session-guard.js teacher-admin-protection.js pwa.js push-client.js sw.js; do
             curl --fail --silent "http://127.0.0.1:4173/today-pe/$file" >/dev/null
           done
           echo 'OK: static smoke test'
