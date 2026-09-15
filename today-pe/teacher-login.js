@@ -20,11 +20,11 @@ function setBackendModeCopy() {
   const label = document.getElementById('backendModeLabel');
   const description = document.getElementById('backendModeDescription');
   if (Backend.remoteEnabled) {
-    label.textContent = 'Supabase 서버 인증 사용 중';
+    label.textContent = '서버 인증 사용 중';
     description.textContent = '교사 계정은 서버에서 인증합니다. 신규 교사는 승인 대기 상태로 가입되며, 기존 학교 관리자가 있으면 관리자가 승인합니다. 아직 관리자가 없는 학교의 최초 관리자는 운영자 승인을 거쳐 지정됩니다.';
   } else {
     label.textContent = '로컬 데모 모드';
-    description.textContent = 'Supabase 설정이 비어 있어 이 브라우저 안에서만 교사 계정과 수업 데이터를 저장합니다. 데모 모드에서는 첫 교사를 자동 학교 관리자로 처리하지만, 실제 서버 모드에서는 운영자/학교 관리자 승인을 사용합니다.';
+    description.textContent = '이 브라우저 안에서만 교사 계정과 수업 데이터를 저장합니다. 데모 모드에서는 첫 교사를 자동 학교 관리자로 처리하지만, 실제 서버 모드에서는 운영자/학교 관리자 승인을 사용합니다.';
   }
 }
 
