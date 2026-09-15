@@ -9,6 +9,7 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="./student-extra.css" />
+  <link rel="stylesheet" href="./design-refresh.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -24,13 +25,19 @@
 
     <main>
       <section id="studentSetupView" class="view hidden">
-        <div class="page-card narrow">
+        <div class="page-card narrow setup-card-upgraded">
+          <div class="setup-stepper" aria-label="학생 설정 단계">
+            <div class="setup-step active"><span>1</span><small>학교 선택</small></div>
+            <div class="setup-step"><span>2</span><small>학년 선택</small></div>
+            <div class="setup-step"><span>3</span><small>반 선택</small></div>
+          </div>
+
           <span class="eyebrow">학생 설정</span>
-          <h2>학교를 찾아주세요</h2>
+          <h2>학교를 선택해주세요</h2>
           <p class="muted">전국 학교를 검색한 뒤 학년과 반을 한 번만 설정하면 됩니다.</p>
 
-          <form id="studentSchoolSearchForm" class="search-row">
-            <input id="studentSchoolSearchInput" type="search" placeholder="예: 대덕소프트웨어마이스터고" autocomplete="off" />
+          <form id="studentSchoolSearchForm" class="search-row search-row-upgraded">
+            <input id="studentSchoolSearchInput" type="search" placeholder="학교 이름을 검색하세요..." autocomplete="off" />
             <button class="primary-button" type="submit">검색</button>
           </form>
           <p id="studentSchoolSearchStatus" class="status-text"></p>
@@ -56,13 +63,15 @@
 
       <section id="studentHomeView" class="view hidden">
         <div class="dashboard-grid student-grid">
-          <section class="welcome-block">
-            <div>
-              <span class="eyebrow" id="studentDateLabel"></span>
-              <h2 id="studentClassLabel">오늘의 체육</h2>
-              <small id="studentBackendMode" class="muted"></small>
+          <section class="student-hero-panel">
+            <div class="student-hero-top">
+              <div>
+                <span class="eyebrow" id="studentDateLabel"></span>
+                <h2 id="studentClassLabel">오늘의 체육</h2>
+                <small id="studentBackendMode" class="muted"></small>
+              </div>
+              <button class="ghost-button" id="refreshStudentButton" type="button">새로고침</button>
             </div>
-            <button class="ghost-button" id="refreshStudentButton" type="button">새로고침</button>
           </section>
 
           <section id="todayLessons" class="today-lessons"></section>
