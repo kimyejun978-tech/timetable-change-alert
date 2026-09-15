@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oneul-pe-v12';
+const CACHE_NAME = 'oneul-pe-v13';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   './style.css',
   './student-extra.css',
   './teacher-extra.css',
+  './design-refresh.css',
   './shared.js',
   './backend.js',
   './student-privacy.js',
