@@ -3,11 +3,10 @@
   const config = window.ONEUL_PE_CONFIG || {};
   const supabaseFactory = window.supabase?.createClient;
   const PENDING_KEY = 'oneulPe.pendingTeacherSignup.v1';
+  const EMAIL_RETRY_COOLDOWN_MS = 10 * 60 * 1000;
 
   if (!Backend?.remoteEnabled || !config.SUPABASE_URL || !config.SUPABASE_ANON_KEY || !supabaseFactory) return;
 
-  // backend.js와 같은 Supabase Auth 저장소를 사용한다. 로그인/이메일 확인 세션이
-  // 교사 로그인 페이지와 교사 관리 페이지 사이에서 그대로 이어진다.
   const client = supabaseFactory(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
@@ -20,7 +19,11 @@
     return 'https://oneul-pe.vercel.app/today-pe/teacher-login.html';
   }
 
-  function pendingPayload({ school, name, email }) {
+  function schoolCode(school) {
+    return `${school?.ATPT_OFCDC_SC_CODE || ''}:${school?.SD_SCHUL_CODE || ''}`;
+  }
+
+  function pendingPayload({ school, name, email }, extra = {}) {
     return {
       name,
       email: String(email || '').trim().toLowerCase(),
@@ -32,11 +35,13 @@
         ORG_RDNMA: school.ORG_RDNMA || '',
       },
       createdAt: Date.now(),
+      emailSentAt: Number(extra.emailSentAt || 0),
+      nextEmailAttemptAt: Number(extra.nextEmailAttemptAt || 0),
     };
   }
 
-  function savePending(input) {
-    localStorage.setItem(PENDING_KEY, JSON.stringify(pendingPayload(input)));
+  function savePending(input, extra = {}) {
+    localStorage.setItem(PENDING_KEY, JSON.stringify(pendingPayload(input, extra)));
   }
 
   function readPending() {
@@ -55,6 +60,24 @@
 
   function clearPending() {
     localStorage.removeItem(PENDING_KEY);
+  }
+
+  function matchesPending(pending, { school, email }) {
+    if (!pending) return false;
+    return pending.email === String(email || '').trim().toLowerCase()
+      && schoolCode(pending.school) === schoolCode(school);
+  }
+
+  function remainingEmailWaitSeconds(pending) {
+    const remaining = Number(pending?.nextEmailAttemptAt || 0) - Date.now();
+    return remaining > 0 ? Math.ceil(remaining / 1000) : 0;
+  }
+
+  function isEmailRateLimitError(error) {
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('email rate limit')
+      || message.includes('rate limit exceeded')
+      || message.includes('over_email_send_rate_limit');
   }
 
   function normalizeProfile(profile, email = '') {
@@ -125,8 +148,23 @@
     });
 
     if (authResult.error) {
-      const pending = pendingPayload({ school, name, email: normalizedEmail });
-      savePending(pending);
+      const existingPending = readPending();
+      if (matchesPending(existingPending, { school, email: normalizedEmail })) {
+        const waitSeconds = remainingEmailWaitSeconds(existingPending);
+        if (waitSeconds > 0) {
+          return {
+            status: 'confirmation_wait',
+            retryAfterSeconds: waitSeconds,
+            emailSent: Number(existingPending.emailSentAt || 0) > 0,
+          };
+        }
+      }
+
+      const nextEmailAttemptAt = Date.now() + EMAIL_RETRY_COOLDOWN_MS;
+      savePending({ school, name, email: normalizedEmail }, {
+        emailSentAt: Number(existingPending?.emailSentAt || 0),
+        nextEmailAttemptAt,
+      });
 
       const signUp = await client.auth.signUp({
         email: normalizedEmail,
@@ -142,10 +180,27 @@
       });
 
       if (signUp.error) {
+        if (isEmailRateLimitError(signUp.error)) {
+          savePending({ school, name, email: normalizedEmail }, {
+            emailSentAt: Number(existingPending?.emailSentAt || 0),
+            nextEmailAttemptAt,
+          });
+          return {
+            status: 'confirmation_rate_limited',
+            retryAfterSeconds: Math.ceil(EMAIL_RETRY_COOLDOWN_MS / 1000),
+          };
+        }
         clearPending();
         throw signUp.error;
       }
-      if (!signUp.data.session) return { status: 'confirmation_required' };
+
+      if (!signUp.data.session) {
+        savePending({ school, name, email: normalizedEmail }, {
+          emailSentAt: Date.now(),
+          nextEmailAttemptAt,
+        });
+        return { status: 'confirmation_required' };
+      }
       authResult = signUp;
     }
 
