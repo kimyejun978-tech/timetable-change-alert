@@ -7,12 +7,17 @@
   <title>오늘체육 · 교사 로그인</title>
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="./design-refresh.css" />
+  <link rel="stylesheet" href="./portal-switch.css" />
 </head>
 <body>
   <main>
     <section class="view teacher-login-view">
       <div class="page-card narrow teacher-login-card-upgraded">
         <a class="text-button back-link" href="./index.html">← 처음 화면</a>
+        <nav class="portal-switch login-portal-switch" aria-label="포털 전환">
+          <a class="portal-switch-link" href="./student.html">학생 포털</a>
+          <a class="portal-switch-link teacher-active active" href="./teacher-login.html" aria-current="page">교사 포털</a>
+        </nav>
         <div class="teacher-login-intro">
           <span class="eyebrow">Teacher only</span>
           <h2>교사 계정으로 로그인</h2>
