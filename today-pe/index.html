@@ -6,30 +6,63 @@
   <meta name="theme-color" content="#2563eb" />
   <title>오늘체육</title>
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./design-refresh.css" />
 </head>
 <body>
   <main>
     <section class="view hero-view">
-      <div class="hero-card">
-        <span class="eyebrow">오늘 체육, 찾으러 다니지 마세요</span>
-        <h1>오늘체육</h1>
-        <p class="hero-copy">학생은 자기 반 체육수업을 바로 확인하고, 선생님은 학교 전체 체육수업을 관리합니다.</p>
+      <div class="hero-card hero-card-upgraded">
+        <div class="hero-header">
+          <span class="eyebrow">오늘 체육, 찾으러 다니지 마세요</span>
+          <span class="hero-side-note">학교의 오늘을 더 간편하게</span>
+        </div>
 
-        <div class="role-grid">
-          <a class="role-card role-link" href="./student.html">
-            <span class="role-icon">🎒</span>
+        <div class="hero-main">
+          <h1>오늘체육</h1>
+          <p class="hero-copy hero-copy-upgraded">
+            오늘 체육수업 장소와 안내를 빠르게 확인하세요.<br />
+            학생은 자기 반 수업을 보고, 교사는 학교 전체 수업을 관리할 수 있습니다.
+          </p>
+        </div>
+
+        <div class="hero-feature-row" aria-label="서비스 특징">
+          <span>빠른 확인</span>
+          <span>실시간 변경 반영</span>
+          <span>학생 · 교사 분리 화면</span>
+        </div>
+
+        <div class="role-grid upgraded-role-grid">
+          <a class="role-card role-link role-card-student" href="./student.html">
+            <div class="role-card-top">
+              <div class="role-icon-bubble" aria-hidden="true">🎒</div>
+              <span class="role-chip">빠른 조회</span>
+            </div>
             <strong>학생으로 시작</strong>
-            <small>학교·학년·반을 한 번 설정하면 이후 바로 오늘 체육을 확인합니다.</small>
+            <small>학교와 반을 설정하고 오늘 체육 안내를 바로 확인합니다.</small>
+            <span class="role-arrow" aria-hidden="true">→</span>
           </a>
 
-          <a class="role-card role-link teacher-entry" href="./teacher-login.html">
-            <span class="role-icon">🏫</span>
+          <a class="role-card role-link role-card-teacher teacher-entry" href="./teacher-login.html">
+            <div class="role-card-top">
+              <div class="role-icon-bubble role-icon-bubble-green" aria-hidden="true">🏫</div>
+              <span class="role-chip role-chip-green">수업 관리</span>
+            </div>
             <strong>교사 로그인</strong>
-            <small>교사 인증 후 학교 전체 체육수업 등록·수정 화면에 접근합니다.</small>
+            <small>교사 인증 후 학교 전체 체육수업을 등록·수정합니다.</small>
+            <span class="role-arrow" aria-hidden="true">→</span>
           </a>
         </div>
 
-        <p class="portal-note">학생 화면과 교사 화면은 별도 페이지로 분리되어 있습니다. 교사용 관리 페이지는 인증 세션이 없으면 열리지 않습니다.</p>
+        <div class="portal-note upgraded-portal-note">
+          <span class="portal-note-line" aria-hidden="true"></span>
+          <p>교사용 관리 화면은 로그인한 교사만 접근할 수 있습니다.</p>
+          <span class="portal-note-line" aria-hidden="true"></span>
+        </div>
+
+        <div class="hero-footer-illustration" aria-hidden="true">
+          <div class="hero-footer-copy">건강한 오늘, 더 좋은 내일</div>
+          <div class="hero-school-illustration"></div>
+        </div>
       </div>
     </section>
   </main>
