@@ -9,15 +9,25 @@ function compactSchool(row) {
   };
 }
 
+function normalizeSchoolQuery(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
   }
 
-  const query = String(req.query.q || '').trim();
+  const rawQuery = String(req.query.q || '').trim();
+  const query = normalizeSchoolQuery(rawQuery);
+
   if (query.length < 2) return res.status(400).json({ error: 'QUERY_TOO_SHORT' });
-  if (query.length > 100) return res.status(400).json({ error: 'QUERY_TOO_LONG' });
+  if (rawQuery.length > 100 || query.length > 100) {
+    return res.status(400).json({ error: 'QUERY_TOO_LONG' });
+  }
 
   const params = new URLSearchParams({
     Type: 'json',
