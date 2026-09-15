@@ -1,274 +1,341 @@
-//학교 설정이랑 홈 화면을 관리하는 파일
-//컴시간 자동 조회는 브라우저에서 막혀서 이 파일에서는 직접 저장한 정보만 사용한다
+// 오늘(Onul) 프론트엔드 공통 동작
+// 현재 단계에서는 학교/시간표/알림 설정을 localStorage에 저장한다.
 
+const STORAGE_KEYS = {
+  schoolName: "schoolName",
+  schoolGrade: "schoolGrade",
+  schoolClass: "schoolClass",
+  moveNotificationEnabled: "moveNotificationEnabled",
+  moveAlertOne: "moveAlertOne",
+  moveAlertTwo: "moveAlertTwo",
+};
 
-//localStorage에 저장할 때 사용할 이름들
-let saveSchoolName = "schoolName";
-let saveSchoolGrade = "schoolGrade";
-let saveSchoolClass = "schoolClass";
+// 학교별 수업 시간 연동 전까지 사용하는 기본 표시 시간이다.
+const PERIOD_TIMES = [
+  { start: "08:50", end: "09:40" },
+  { start: "09:50", end: "10:40" },
+  { start: "10:50", end: "11:40" },
+  { start: "11:50", end: "12:40" },
+  { start: "13:30", end: "14:20" },
+  { start: "14:30", end: "15:20" },
+  { start: "15:30", end: "16:20" },
+];
 
+function safeParse(value) {
+  if (value === null) return null;
 
-//오늘 요일을 숫자로 알아내는 함수
-//일요일은 0, 토요일은 6이라서 주말에는 월요일 시간표를 보여주도록 함
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
+function getSeoulNow() {
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const data = {};
+  parts.forEach(function (part) {
+    if (part.type !== "literal") data[part.type] = part.value;
+  });
+
+  return {
+    year: Number(data.year),
+    month: Number(data.month),
+    day: Number(data.day),
+    weekday: data.weekday,
+    hour: Number(data.hour),
+    minute: Number(data.minute),
+  };
+}
+
 function getTodayNumber() {
-  //getDay는 월요일부터가 아니라 일요일부터 시작하는 점 주의
-  let today = new Date();
-  let todayNumber = today.getDay();
+  const weekday = getSeoulNow().weekday;
+  const weekdayMap = {
+    "월요일": 1,
+    "화요일": 2,
+    "수요일": 3,
+    "목요일": 4,
+    "금요일": 5,
+    "토요일": 6,
+    "일요일": 0,
+  };
 
-  if (todayNumber == 0) {
-    //주말에는 수업이 없으니 다음에 볼 월요일 기준으로 보여준다
-    todayNumber = 1;
-  }
+  const todayNumber = weekdayMap[weekday];
 
-  if (todayNumber == 6) {
-    todayNumber = 1;
-  }
-
+  // 주말에는 다음 학교 일정 확인용으로 월요일 시간표를 보여준다.
+  if (todayNumber === 0 || todayNumber === 6) return 1;
   return todayNumber;
 }
 
-
-//요일 숫자를 한글 이름으로 바꾸기
-function getTodayName(todayNumber) {
-  //배열도 가능하지만 숫자랑 이름을 눈으로 바로 확인하려고 if문으로 작성함
-  let todayName = "월요일";
-
-  if (todayNumber == 1) {
-    todayName = "월요일";
-  } else if (todayNumber == 2) {
-    todayName = "화요일";
-  } else if (todayNumber == 3) {
-    todayName = "수요일";
-  } else if (todayNumber == 4) {
-    todayName = "목요일";
-  } else if (todayNumber == 5) {
-    todayName = "금요일";
-  }
-
-  return todayName;
-}
-
-
-//data.js에서 저장한 기본 시간표를 오늘 요일에 맞게 꺼내온다
 function getBasicSchedule(todayNumber) {
-  //저장된 값이 하나도 없을 때를 생각해서 빈 7칸으로 시작
-  let basicSchedule = ["", "", "", "", "", "", ""];
+  const emptySchedule = ["", "", "", "", "", "", ""];
+  const config = {
+    1: { key: "smon", fields: ["mc1", "mc2", "mc3", "mc4", "mc5", "mc6", "mc7"] },
+    2: { key: "stues", fields: ["tuc1", "tuc2", "tuc3", "tuc4", "tuc5", "tuc6", "tuc7"] },
+    3: { key: "swed", fields: ["wc1", "wc2", "wc3", "wc4", "wc5", "wc6", "wc7"] },
+    4: { key: "sthurs", fields: ["thc1", "thc2", "thc3", "thc4", "thc5", "thc6", "thc7"] },
+    5: { key: "sfri", fields: ["fc1", "fc2", "fc3", "fc4", "fc5", "fc6", "fc7"] },
+  };
 
-  if (todayNumber == 1) {
-    let mondayString = localStorage.getItem("smon");
+  const selected = config[todayNumber];
+  if (!selected) return emptySchedule;
 
-    if (mondayString !== null) {
-      //저장할 때 JSON 문자열로 바꿨으므로 여기서는 다시 객체로 되돌림
-      let mondayObject = JSON.parse(mondayString);
-      basicSchedule[0] = mondayObject.mc1;
-      basicSchedule[1] = mondayObject.mc2;
-      basicSchedule[2] = mondayObject.mc3;
-      basicSchedule[3] = mondayObject.mc4;
-      basicSchedule[4] = mondayObject.mc5;
-      basicSchedule[5] = mondayObject.mc6;
-      basicSchedule[6] = mondayObject.mc7;
+  const saved = safeParse(localStorage.getItem(selected.key));
+  if (!saved) return emptySchedule;
+
+  return selected.fields.map(function (field) {
+    return saved[field] || "";
+  });
+}
+
+function getMinutes(timeText) {
+  const pieces = timeText.split(":");
+  return Number(pieces[0]) * 60 + Number(pieces[1]);
+}
+
+function getCurrentPeriodState() {
+  const now = getSeoulNow();
+  const currentMinutes = now.hour * 60 + now.minute;
+
+  for (let i = 0; i < PERIOD_TIMES.length; i++) {
+    const start = getMinutes(PERIOD_TIMES[i].start);
+    const end = getMinutes(PERIOD_TIMES[i].end);
+
+    if (currentMinutes >= start && currentMinutes < end) {
+      return { current: i, next: i + 1 < PERIOD_TIMES.length ? i + 1 : -1 };
     }
-  } else if (todayNumber == 2) {
-    let tuesdayString = localStorage.getItem("stues");
 
-    if (tuesdayString !== null) {
-      let tuesdayObject = JSON.parse(tuesdayString);
-      basicSchedule[0] = tuesdayObject.tuc1;
-      basicSchedule[1] = tuesdayObject.tuc2;
-      basicSchedule[2] = tuesdayObject.tuc3;
-      basicSchedule[3] = tuesdayObject.tuc4;
-      basicSchedule[4] = tuesdayObject.tuc5;
-      basicSchedule[5] = tuesdayObject.tuc6;
-      basicSchedule[6] = tuesdayObject.tuc7;
-    }
-  } else if (todayNumber == 3) {
-    let wednesdayString = localStorage.getItem("swed");
-
-    if (wednesdayString !== null) {
-      let wednesdayObject = JSON.parse(wednesdayString);
-      basicSchedule[0] = wednesdayObject.wc1;
-      basicSchedule[1] = wednesdayObject.wc2;
-      basicSchedule[2] = wednesdayObject.wc3;
-      basicSchedule[3] = wednesdayObject.wc4;
-      basicSchedule[4] = wednesdayObject.wc5;
-      basicSchedule[5] = wednesdayObject.wc6;
-      basicSchedule[6] = wednesdayObject.wc7;
-    }
-  } else if (todayNumber == 4) {
-    let thursdayString = localStorage.getItem("sthurs");
-
-    if (thursdayString !== null) {
-      let thursdayObject = JSON.parse(thursdayString);
-      basicSchedule[0] = thursdayObject.thc1;
-      basicSchedule[1] = thursdayObject.thc2;
-      basicSchedule[2] = thursdayObject.thc3;
-      basicSchedule[3] = thursdayObject.thc4;
-      basicSchedule[4] = thursdayObject.thc5;
-      basicSchedule[5] = thursdayObject.thc6;
-      basicSchedule[6] = thursdayObject.thc7;
-    }
-  } else if (todayNumber == 5) {
-    let fridayString = localStorage.getItem("sfri");
-
-    if (fridayString !== null) {
-      let fridayObject = JSON.parse(fridayString);
-      basicSchedule[0] = fridayObject.fc1;
-      basicSchedule[1] = fridayObject.fc2;
-      basicSchedule[2] = fridayObject.fc3;
-      basicSchedule[3] = fridayObject.fc4;
-      basicSchedule[4] = fridayObject.fc5;
-      basicSchedule[5] = fridayObject.fc6;
-      basicSchedule[6] = fridayObject.fc7;
+    if (currentMinutes < start) {
+      return { current: -1, next: i };
     }
   }
 
-  return basicSchedule;
+  return { current: -1, next: -1 };
 }
 
+function setText(selector, value) {
+  const element = document.querySelector(selector);
+  if (element) element.textContent = value;
+}
 
-//설정 페이지에서 학교, 학년, 반을 직접 저장하는 함수
-function storeSchoolSetting() {
-  //버튼을 누르는 시점의 입력값을 가져와야 해서 함수 안에서 요소를 찾는다
-  let schoolNameInput = document.querySelector("#school_name_input");
-  let gradeSelect = document.querySelector("#grade_select");
-  let classSelect = document.querySelector("#class_select");
+function renderCommonSchoolInfo() {
+  const schoolName = localStorage.getItem(STORAGE_KEYS.schoolName) || "학교를 설정해 주세요";
+  const schoolGrade = localStorage.getItem(STORAGE_KEYS.schoolGrade);
+  const schoolClass = localStorage.getItem(STORAGE_KEYS.schoolClass);
 
-  if (schoolNameInput.value == "") {
-    //학교 이름도 없이 저장되는 건 막아둠
-    alert("학교 이름을 입력해 주세요.");
+  setText("#sidebar_school", schoolName);
+
+  if (schoolGrade && schoolClass) {
+    setText("#school_information", schoolName + " · " + schoolGrade + "학년 " + schoolClass + "반");
+  } else {
+    setText("#school_information", schoolName);
+  }
+}
+
+function renderDate() {
+  const now = getSeoulNow();
+  setText("#today_weekday", now.weekday);
+  setText("#today_date", now.month + "월 " + now.day + "일 " + now.weekday);
+  setText("#meal-date-label", now.month + "월 " + now.day + "일");
+}
+
+function renderNextClass(schedule) {
+  const state = getCurrentPeriodState();
+  const nextIndex = state.next;
+  const title = document.querySelector("#next-class-title");
+  const badge = document.querySelector("#next-class-badge");
+
+  if (!title || !badge) return;
+
+  if (nextIndex === -1) {
+    title.textContent = "오늘 수업이 끝났습니다";
+    badge.textContent = "수업 종료";
+    badge.className = "status-badge finished";
+    setText("#next-class-time", "오늘 일정 종료");
+    setText("#next-class-place", "");
+    setText("#next-class-note", "내일 시간표와 변경사항은 다음 등교 전에 확인할 수 있습니다.");
     return;
   }
 
-  //세 값은 나중에 따로 쓰기 편하게 각각 저장했다
-  localStorage.setItem(saveSchoolName, schoolNameInput.value);
-  localStorage.setItem(saveSchoolGrade, gradeSelect.value);
-  localStorage.setItem(saveSchoolClass, classSelect.value);
+  const subject = schedule[nextIndex];
+  const period = nextIndex + 1;
+  const time = PERIOD_TIMES[nextIndex];
 
-  showSchoolSetting();
-  alert("학교와 반을 저장했습니다.");
+  if (!subject) {
+    title.textContent = period + "교시 과목이 설정되지 않았습니다";
+    badge.textContent = "설정 필요";
+    badge.className = "status-badge";
+    setText("#next-class-time", time.start + " - " + time.end);
+    setText("#next-class-place", "장소 미설정");
+    setText("#next-class-note", "시간표 관리에서 과목을 등록하면 다음 수업 정보를 자동으로 보여줍니다.");
+    return;
+  }
+
+  title.textContent = period + "교시 " + subject;
+  badge.textContent = "다음 수업";
+  badge.className = "status-badge";
+  setText("#next-class-time", time.start + " - " + time.end);
+  setText("#next-class-place", "장소 미설정");
+  setText("#next-class-note", "수업 장소 데이터가 연결되면 이동 여부와 10분 전·3분 전 알림을 함께 안내합니다.");
 }
 
+function renderTimetable(schedule) {
+  const tableBody = document.querySelector("#schedule_malloc");
+  if (!tableBody) return;
 
-//설정 페이지 아래쪽에 현재 저장된 값을 보여준다
-function showSchoolSetting() {
-  //아래 세 문단에 localStorage 값을 하나씩 넣어줄 예정
-  let schoolText = document.querySelector("#now_school_text");
-  let gradeText = document.querySelector("#now_grade_text");
-  let classText = document.querySelector("#now_class_text");
+  const state = getCurrentPeriodState();
+  tableBody.innerHTML = "";
 
-  let schoolName = localStorage.getItem(saveSchoolName);
-  let schoolGrade = localStorage.getItem(saveSchoolGrade);
-  let schoolClass = localStorage.getItem(saveSchoolClass);
+  schedule.forEach(function (subject, index) {
+    const row = document.createElement("tr");
 
-  if (schoolName === null) {
-    //전에 저장한 게 없으면 html에 있던 것과 같은 안내를 넣는다
-    schoolText.textContent = "학교: 아직 저장하지 않음";
-  } else {
-    schoolText.textContent = "학교: " + schoolName;
-  }
+    if (index === state.current) row.classList.add("current-row");
+    if (index === state.next) row.classList.add("next-row");
 
-  if (schoolGrade === null) {
-    gradeText.textContent = "학년: 아직 저장하지 않음";
-  } else {
-    gradeText.textContent = "학년: " + schoolGrade + "학년";
-  }
+    const periodCell = document.createElement("td");
+    periodCell.className = "period-cell";
+    periodCell.textContent = index + 1 + "교시";
 
-  if (schoolClass === null) {
-    classText.textContent = "반: 아직 저장하지 않음";
-  } else {
-    classText.textContent = "반: " + schoolClass + "반";
-  }
-}
+    const timeCell = document.createElement("td");
+    timeCell.className = "time-cell";
+    timeCell.textContent = PERIOD_TIMES[index].start + " - " + PERIOD_TIMES[index].end;
 
+    const subjectCell = document.createElement("td");
+    subjectCell.className = "subject-cell";
+    subjectCell.textContent = subject || "과목 미설정";
 
-//홈 화면에 저장된 학교 정보와 기본 시간표를 표시한다
-function showHomePage() {
-  //이 함수가 홈 화면에서 필요한 요소를 거의 다 담당함
-  let schoolInformation = document.querySelector("#school_information");
-  let loadingMessage = document.querySelector("#loading_message");
-  let scheduleTable = document.querySelector("#schedule_malloc");
-  let changedList = document.querySelector("#changed_schedule_list");
+    const statusCell = document.createElement("td");
+    const status = document.createElement("span");
+    status.className = "row-status";
 
-  let schoolName = localStorage.getItem(saveSchoolName);
-  let schoolGrade = localStorage.getItem(saveSchoolGrade);
-  let schoolClass = localStorage.getItem(saveSchoolClass);
-  let todayNumber = getTodayNumber();
-  let todayName = getTodayName(todayNumber);
-  let basicSchedule = getBasicSchedule(todayNumber);
-
-  if (schoolName === null) {
-    //설정 페이지를 방문하지 않은 경우에도 화면이 깨지지 않게 기본값 사용
-    schoolName = "아직 설정하지 않음";
-  }
-
-  if (schoolGrade === null) {
-    schoolGrade = "-";
-  }
-
-  if (schoolClass === null) {
-    schoolClass = "-";
-  }
-
-  //기능이 없는 이유를 사용자에게 바로 알려주는 문장
-  loadingMessage.textContent = "컴시간 서버 연결이 차단되어 오늘 시간표 자동 조회 기능은 사용할 수 없습니다.";
-  schoolInformation.innerHTML = "";
-
-  let schoolLine = document.createElement("p");
-  let classLine = document.createElement("p");
-  //innerHTML로 한 번에 적는 것보다 배운 createElement를 사용해봄
-  schoolLine.textContent = "학교: " + schoolName;
-  classLine.textContent = "학급: " + schoolGrade + "학년 " + schoolClass + "반 / 표시 요일: " + todayName;
-  schoolInformation.appendChild(schoolLine);
-  schoolInformation.appendChild(classLine);
-
-  //data.js에서 만든 예시 행을 지우고 1교시부터 7교시까지 다시 만든다
-  scheduleTable.innerHTML = "";
-
-  for (let i = 0; i < 7; i++) {
-    //i는 0부터 시작하지만 화면에 보이는 교시는 1부터라 아래에서 +1을 한다
-    let oneRow = document.createElement("tr");
-    let periodCell = document.createElement("td");
-    let basicCell = document.createElement("td");
-    let todayCell = document.createElement("td");
-
-    periodCell.textContent = i + 1 + "교시";
-
-    if (basicSchedule[i] == "" || basicSchedule[i] === undefined) {
-      //빈 칸으로 두면 저장이 안 된 건지 구분이 안 돼서 문구 표시
-      basicCell.textContent = "아직 입력 안 함";
+    if (index === state.current) {
+      status.textContent = "현재 수업";
+      status.classList.add("current");
+    } else if (index === state.next) {
+      status.textContent = "다음 수업";
     } else {
-      basicCell.textContent = basicSchedule[i];
+      status.textContent = "-";
     }
 
-    todayCell.textContent = "자동 조회 불가";
-    oneRow.appendChild(periodCell);
-    oneRow.appendChild(basicCell);
-    oneRow.appendChild(todayCell);
-    scheduleTable.appendChild(oneRow);
-  }
-
-  changedList.innerHTML = "";
-  //실시간 비교는 제거했으므로 목록 대신 안내 한 줄만 만든다
-  let changedNotice = document.createElement("li");
-  changedNotice.textContent = "오늘 시간표를 가져올 수 없어 자동 비교도 사용할 수 없습니다.";
-  changedList.appendChild(changedNotice);
+    statusCell.appendChild(status);
+    row.appendChild(periodCell);
+    row.appendChild(timeCell);
+    row.appendChild(subjectCell);
+    row.appendChild(statusCell);
+    tableBody.appendChild(row);
+  });
 }
 
+function renderChanges() {
+  const changeList = document.querySelector("#changed_schedule_list");
+  if (!changeList) return;
 
-//현재 페이지에 있는 요소를 확인해서 필요한 기능만 실행한다
-let schoolSaveButton = document.querySelector("#school_save_button");
-let homeScheduleTable = document.querySelector("#schedule_malloc");
+  changeList.innerHTML = "";
+  const empty = document.createElement("div");
+  empty.className = "empty-row";
+  empty.textContent = "시간표 변경 데이터 연동 전입니다. 연동 후 변경된 교시와 장소만 이곳에 표시합니다.";
+  changeList.appendChild(empty);
+}
 
-if (schoolSaveButton !== null) {
-  //설정 페이지가 아닐 때는 버튼 자체가 없으므로 여기로 들어오지 않는다
-  schoolSaveButton.addEventListener("click", function () {
-    storeSchoolSetting();
-  });
+function showHomePage() {
+  const schedule = getBasicSchedule(getTodayNumber());
+  renderDate();
+  renderCommonSchoolInfo();
+  renderNextClass(schedule);
+  renderTimetable(schedule);
+  renderChanges();
+}
 
+function storeSchoolSetting() {
+  const schoolNameInput = document.querySelector("#school_name_input");
+  const gradeSelect = document.querySelector("#grade_select");
+  const classSelect = document.querySelector("#class_select");
+
+  if (!schoolNameInput || !gradeSelect || !classSelect) return;
+
+  const schoolName = schoolNameInput.value.trim();
+  if (!schoolName) {
+    alert("학교 이름을 입력해 주세요.");
+    schoolNameInput.focus();
+    return;
+  }
+
+  localStorage.setItem(STORAGE_KEYS.schoolName, schoolName);
+  localStorage.setItem(STORAGE_KEYS.schoolGrade, gradeSelect.value);
+  localStorage.setItem(STORAGE_KEYS.schoolClass, classSelect.value);
+  showSchoolSetting();
+  renderCommonSchoolInfo();
+  alert("학교와 학급 설정을 저장했습니다.");
+}
+
+function showSchoolSetting() {
+  const schoolName = localStorage.getItem(STORAGE_KEYS.schoolName);
+  const schoolGrade = localStorage.getItem(STORAGE_KEYS.schoolGrade);
+  const schoolClass = localStorage.getItem(STORAGE_KEYS.schoolClass);
+
+  setText("#now_school_text", "학교  " + (schoolName || "아직 설정하지 않음"));
+  setText("#now_grade_text", "학년  " + (schoolGrade ? schoolGrade + "학년" : "아직 설정하지 않음"));
+  setText("#now_class_text", "반  " + (schoolClass ? schoolClass + "반" : "아직 설정하지 않음"));
+
+  const schoolNameInput = document.querySelector("#school_name_input");
+  const gradeSelect = document.querySelector("#grade_select");
+  const classSelect = document.querySelector("#class_select");
+
+  if (schoolNameInput && schoolName) schoolNameInput.value = schoolName;
+  if (gradeSelect && schoolGrade) gradeSelect.value = schoolGrade;
+  if (classSelect && schoolClass) classSelect.value = schoolClass;
+}
+
+function loadNotificationSettings() {
+  const enabled = document.querySelector("#move_notification_enabled");
+  const firstAlert = document.querySelector("#move_alert_one");
+  const secondAlert = document.querySelector("#move_alert_two");
+
+  if (!enabled || !firstAlert || !secondAlert) return;
+
+  const enabledValue = localStorage.getItem(STORAGE_KEYS.moveNotificationEnabled);
+  enabled.value = enabledValue === "off" ? "off" : "on";
+  firstAlert.value = localStorage.getItem(STORAGE_KEYS.moveAlertOne) || "10";
+  secondAlert.value = localStorage.getItem(STORAGE_KEYS.moveAlertTwo) || "3";
+}
+
+function saveNotificationSettings() {
+  const enabled = document.querySelector("#move_notification_enabled");
+  const firstAlert = document.querySelector("#move_alert_one");
+  const secondAlert = document.querySelector("#move_alert_two");
+
+  if (!enabled || !firstAlert || !secondAlert) return;
+
+  localStorage.setItem(STORAGE_KEYS.moveNotificationEnabled, enabled.value);
+  localStorage.setItem(STORAGE_KEYS.moveAlertOne, firstAlert.value);
+  localStorage.setItem(STORAGE_KEYS.moveAlertTwo, secondAlert.value);
+  alert("이동수업 알림 설정을 저장했습니다.");
+}
+
+const schoolSaveButton = document.querySelector("#school_save_button");
+if (schoolSaveButton) {
+  schoolSaveButton.addEventListener("click", storeSchoolSetting);
   showSchoolSetting();
 }
 
-if (homeScheduleTable !== null) {
-  //홈에서만 학교 정보와 표를 그린다
+const notificationSaveButton = document.querySelector("#notification_save_button");
+if (notificationSaveButton) {
+  notificationSaveButton.addEventListener("click", saveNotificationSettings);
+  loadNotificationSettings();
+}
+
+renderCommonSchoolInfo();
+
+if (document.querySelector("#schedule_malloc")) {
   showHomePage();
 }
