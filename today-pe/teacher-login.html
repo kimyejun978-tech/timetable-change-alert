@@ -7,17 +7,22 @@
   <title>오늘체육 · 교사 로그인</title>
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="./design-refresh.css" />
-  <link rel="stylesheet" href="./portal-switch.css" />
 </head>
 <body>
+  <header class="topbar auth-topbar">
+    <a class="brand-button brand-link" href="./index.html">오늘체육</a>
+    <div class="topbar-actions">
+      <nav class="portal-switch" aria-label="포털 전환">
+        <a class="portal-switch-link" href="./student.html">학생 포털</a>
+        <a class="portal-switch-link active" href="./teacher-login.html" aria-current="page">교사 포털</a>
+      </nav>
+    </div>
+  </header>
+
   <main>
     <section class="view teacher-login-view">
       <div class="page-card narrow teacher-login-card-upgraded">
         <a class="text-button back-link" href="./index.html">← 처음 화면</a>
-        <nav class="portal-switch login-portal-switch" aria-label="포털 전환">
-          <a class="portal-switch-link" href="./student.html">학생 포털</a>
-          <a class="portal-switch-link teacher-active active" href="./teacher-login.html" aria-current="page">교사 포털</a>
-        </nav>
         <div class="teacher-login-intro">
           <span class="eyebrow">Teacher only</span>
           <h2>교사 계정으로 로그인</h2>
@@ -62,6 +67,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="./shared.js" defer></script>
   <script src="./backend.js" defer></script>
+  <script src="./teacher-auth-flow.js" defer></script>
+  <script src="./portal-switch.js" defer></script>
   <script src="./teacher-school-lock.js" defer></script>
   <script src="./teacher-approval-context.js" defer></script>
   <script src="./teacher-login.js" defer></script>
