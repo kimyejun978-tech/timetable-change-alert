@@ -324,6 +324,13 @@ Push 대상 계산/반 이동
 학교 검색 API 입력 검증
 ```
 
+`2026-09-15` 기준 feature branch 최신 검증에서 두 workflow 모두 성공했습니다.
+
+```text
+Validate 오늘체육 MVP           ✅ success
+Validate 오늘체육 API Policies  ✅ success
+```
+
 Playwright는 `/api/public-config`를 빈 설정으로 mock해 로컬 데모 모드에서 실행하므로 실제 Supabase DB를 오염시키지 않습니다.
 
 ## 13. 실기기 최종 E2E
