@@ -45,4 +45,32 @@ const hugeRegion = await invoke({
 assert.equal(hugeRegion.status, 400);
 assert.equal(hugeRegion.payload.error, 'INVALID_REGION');
 
+const invalidScope = await invoke({
+  query: {
+    schoolName: '테스트고등학교',
+    date: '20260914',
+    scope: 'month',
+  },
+});
+assert.equal(invalidScope.status, 400);
+assert.equal(invalidScope.payload.error, 'INVALID_SCOPE');
+
+for (const query of [
+  { grade: '1' },
+  { grade: '0', classNo: '2' },
+  { grade: '1', classNo: '0' },
+  { grade: 'abc', classNo: '2' },
+]) {
+  const result = await invoke({
+    query: {
+      schoolName: '테스트고등학교',
+      date: '20260914',
+      scope: 'week',
+      ...query,
+    },
+  });
+  assert.equal(result.status, 400, JSON.stringify(query));
+  assert.equal(result.payload.error, 'INVALID_STUDENT_CLASS', JSON.stringify(query));
+}
+
 console.log('OK: timetable API input validation');
