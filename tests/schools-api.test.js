@@ -21,8 +21,43 @@ const tooShort = await invoke({ query: { q: '대' } });
 assert.equal(tooShort.status, 400);
 assert.equal(tooShort.payload.error, 'QUERY_TOO_SHORT');
 
+const spacedTooShort = await invoke({ query: { q: '대     ' } });
+assert.equal(spacedTooShort.status, 400);
+assert.equal(spacedTooShort.payload.error, 'QUERY_TOO_SHORT');
+
 const tooLong = await invoke({ query: { q: '가'.repeat(101) } });
 assert.equal(tooLong.status, 400);
 assert.equal(tooLong.payload.error, 'QUERY_TOO_LONG');
 
-console.log('OK: school search API input bounds');
+const originalFetch = globalThis.fetch;
+let requestedSchoolName = '';
+globalThis.fetch = async (url) => {
+  const parsed = new URL(url);
+  requestedSchoolName = parsed.searchParams.get('SCHUL_NM') || '';
+  return {
+    ok: true,
+    async json() {
+      return {
+        schoolInfo: [
+          { head: [] },
+          { row: [{
+            ATPT_OFCDC_SC_CODE: 'G10',
+            SD_SCHUL_CODE: '1234567',
+            SCHUL_NM: '대덕소프트웨어마이스터고등학교',
+          }] },
+        ],
+      };
+    },
+  };
+};
+
+try {
+  const spacedSearch = await invoke({ query: { q: '대덕 소프트웨어 마이스터고' } });
+  assert.equal(spacedSearch.status, 200);
+  assert.equal(requestedSchoolName, '대덕소프트웨어마이스터고');
+  assert.equal(spacedSearch.payload.rows[0].SCHUL_NM, '대덕소프트웨어마이스터고등학교');
+} finally {
+  globalThis.fetch = originalFetch;
+}
+
+console.log('OK: school search API input bounds and whitespace normalization');
