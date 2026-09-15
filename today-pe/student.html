@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="./student-extra.css" />
   <link rel="stylesheet" href="./design-refresh.css" />
+  <link rel="stylesheet" href="./portal-switch.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -18,7 +19,11 @@
       <div class="topbar-actions">
         <button id="installAppButton" class="ghost-button small hidden" type="button">앱 설치</button>
         <button id="enableNotificationsButton" class="ghost-button small" type="button">알림 켜기</button>
-        <span id="studentSchoolBadge" class="school-badge"></span>
+        <nav class="portal-switch" aria-label="포털 전환">
+          <a class="portal-switch-link active" href="./student.html" aria-current="page">학생 포털</a>
+          <a class="portal-switch-link" href="./teacher-login.html">교사 포털</a>
+        </nav>
+        <span id="studentSchoolBadge" class="school-badge hidden" aria-hidden="true"></span>
         <button id="studentResetButton" class="ghost-button small" type="button">학교/반 변경</button>
       </div>
     </header>
