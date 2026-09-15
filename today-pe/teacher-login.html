@@ -6,15 +6,18 @@
   <meta name="theme-color" content="#2563eb" />
   <title>오늘체육 · 교사 로그인</title>
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./design-refresh.css" />
 </head>
 <body>
   <main>
-    <section class="view">
-      <div class="page-card narrow">
+    <section class="view teacher-login-view">
+      <div class="page-card narrow teacher-login-card-upgraded">
         <a class="text-button back-link" href="./index.html">← 처음 화면</a>
-        <span class="eyebrow">Teacher only</span>
-        <h2>교사 로그인</h2>
-        <p class="muted">학생 포털과 분리된 교사용 관리 화면입니다.</p>
+        <div class="teacher-login-intro">
+          <span class="eyebrow">Teacher only</span>
+          <h2>교사 계정으로 로그인</h2>
+          <p class="muted">학교 전체 체육수업을 효율적으로 관리하세요.</p>
+        </div>
 
         <section id="teacherSchoolStep">
           <form id="teacherSchoolSearchForm" class="search-row">
@@ -37,7 +40,7 @@
             <input id="teacherPassword" type="password" minlength="8" maxlength="72" placeholder="8자 이상" autocomplete="current-password" required />
             <small class="field-help">Supabase 연결 시 실제 이메일/비밀번호 인증을 사용합니다. 로컬 데모에서도 같은 비밀번호로 로그인합니다.</small>
           </label>
-          <button id="teacherLoginButton" class="primary-button full" type="submit">교사 화면 들어가기</button>
+          <button id="teacherLoginButton" class="primary-button full" type="submit">로그인</button>
         </form>
 
         <section class="security-note">
