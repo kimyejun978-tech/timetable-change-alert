@@ -39,6 +39,18 @@ function cleanAuthUrl() {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
+function retryCopy(seconds = 0) {
+  const minutes = Math.max(1, Math.ceil(Number(seconds || 0) / 60));
+  return `${minutes}분 정도 후 다시 시도해주세요.`;
+}
+
+function isRateLimitMessage(message) {
+  const value = String(message || '').toLowerCase();
+  return value.includes('email rate limit')
+    || value.includes('rate limit exceeded')
+    || value.includes('over_email_send_rate_limit');
+}
+
 async function redirectIfSignedIn() {
   const fromEmail = arrivedFromEmailConfirmation();
   try {
@@ -133,8 +145,24 @@ loginForm.addEventListener('submit', async (event) => {
 
     if (result.status === 'confirmation_required') {
       backendLabel.textContent = '인증 메일을 보냈어요';
-      backendDescription.textContent = `메일함에서 “[오늘체육] 교사 계정 이메일 인증” 메일을 열고 인증 버튼을 눌러주세요. 인증 후 자동으로 오늘체육으로 돌아옵니다.`;
+      backendDescription.textContent = '메일함에서 “[오늘체육] 교사 계정 이메일 인증” 메일을 열고 인증 버튼을 눌러주세요. 인증 후 자동으로 오늘체육으로 돌아옵니다.';
       showToast('인증 메일을 보냈어요. 메일함을 확인해주세요.');
+      return;
+    }
+
+    if (result.status === 'confirmation_wait') {
+      backendLabel.textContent = result.emailSent ? '이미 인증 메일을 보냈어요' : '인증 메일 요청을 잠시 쉬고 있어요';
+      backendDescription.textContent = result.emailSent
+        ? `메일함에서 오늘체육 인증 메일을 확인해주세요. 새 메일 요청은 ${retryCopy(result.retryAfterSeconds)}`
+        : `메일 전송 요청이 너무 가까운 간격으로 반복됐습니다. ${retryCopy(result.retryAfterSeconds)}`;
+      showToast(result.emailSent ? '이미 보낸 인증 메일을 확인해주세요.' : retryCopy(result.retryAfterSeconds));
+      return;
+    }
+
+    if (result.status === 'confirmation_rate_limited') {
+      backendLabel.textContent = '인증 메일 요청이 너무 많아요';
+      backendDescription.textContent = `메일 서비스의 임시 전송 제한에 걸렸습니다. ${retryCopy(result.retryAfterSeconds)} 이미 받은 인증 메일이 있다면 새 메일을 기다리지 말고 그 메일의 인증 버튼을 눌러도 됩니다.`;
+      showToast(`인증 메일을 너무 자주 요청했어요. ${retryCopy(result.retryAfterSeconds)}`);
       return;
     }
 
@@ -160,6 +188,13 @@ loginForm.addEventListener('submit', async (event) => {
       const copy = '이 교사 계정은 이미 다른 학교에 등록되어 있습니다. 학교 변경·정정은 운영자 확인이 필요합니다.';
       showToast(copy);
       backendDescription.textContent = copy;
+      return;
+    }
+    if (isRateLimitMessage(message)) {
+      const copy = '인증 메일을 너무 자주 요청했어요. 잠시 후 다시 시도해주세요.';
+      backendLabel.textContent = '인증 메일 요청이 너무 많아요';
+      backendDescription.textContent = `${copy} 이미 받은 인증 메일이 있으면 그 메일을 그대로 사용해도 됩니다.`;
+      showToast(copy);
       return;
     }
     showToast(error?.message || '교사 인증에 실패했습니다.');
