@@ -313,6 +313,17 @@ Push 대상 계산 / 반 이동
 
 Playwright는 `/api/public-config`를 빈 설정으로 mock하여 로컬 데모 모드로 실행하므로 실제 Supabase DB를 오염시키지 않습니다.
 
+### 최신 검증 상태
+
+`2026-09-15` 기준 최신 feature branch에서 아래 두 workflow가 모두 성공했습니다.
+
+```text
+Validate 오늘체육 MVP           ✅ success
+Validate 오늘체육 API Policies  ✅ success
+```
+
+메인 검증에는 Playwright 학생↔교사 흐름, 실제 컴시간 학교 검색, 실제 NEIS 학교 검색까지 포함됩니다.
+
 ## 현재 남은 외부 작업
 
 ```text
