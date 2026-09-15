@@ -42,12 +42,44 @@ function toYmd(date) {
   return `${y}${m}${d}`;
 }
 
+function toDateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function mondayOf(date) {
+  const result = new Date(date);
+  const weekday = result.getDay();
+  const offset = weekday === 0 ? -6 : 1 - weekday;
+  result.setDate(result.getDate() + offset);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
 function validOfficeCode(value) {
   return /^[A-Z0-9]{2,20}$/i.test(String(value || ''));
 }
 
 function validSchoolCode(value) {
   return /^\d{5,20}$/.test(String(value || ''));
+}
+
+function parseClassTarget(gradeValue, classValue) {
+  const gradeText = String(gradeValue || '').trim();
+  const classText = String(classValue || '').trim();
+  if (!gradeText && !classText) return null;
+  if (!/^\d+$/.test(gradeText) || !/^\d+$/.test(classText)) return false;
+
+  const grade = Number(gradeText);
+  const classNo = Number(classText);
+  if (
+    !Number.isInteger(grade) || grade < 1 || grade > MAX_GRADES
+    || !Number.isInteger(classNo) || classNo < 1 || classNo > MAX_CLASSES_PER_GRADE
+  ) return false;
+
+  return { grade, classNo };
 }
 
 async function runWithConcurrency(items, limit, worker) {
@@ -68,7 +100,24 @@ async function runWithConcurrency(items, limit, worker) {
   return output;
 }
 
-async function fromComcigan({ schoolName, region, date }) {
+function normalizeComciganItem(item, index, { grade, classNum, weekday, date }) {
+  const rawPeriod = Number(item?.period ?? item?.classTime ?? item?.class_time ?? index + 1);
+  return {
+    grade,
+    classNo: classNum,
+    period: Number.isInteger(rawPeriod) && rawPeriod > 0 ? rawPeriod : index + 1,
+    weekday,
+    date: toDateKey(date),
+    subject: item.subject,
+    teacher: item.teacher || '',
+    classroom: item.classRoom || '',
+    changed: Boolean(item.original),
+    originalSubject: item.original?.subject || '',
+    originalTeacher: item.original?.teacher || '',
+  };
+}
+
+async function fromComcigan({ schoolName, region, date, scope, classTarget }) {
   const schools = await Comcigan.search(schoolName);
   if (!schools.length) throw new Error('COMCIGAN_SCHOOL_NOT_FOUND');
 
@@ -83,8 +132,31 @@ async function fromComcigan({ schoolName, region, date }) {
 
   const comci = new Comcigan(school.code);
   const info = await comci.schoolInfo();
-  const weekday = date.getDay();
-  if (weekday < 1 || weekday > 5) {
+  const classesByGrade = Array.isArray(info.classes) ? info.classes : [];
+  const gradeCount = Math.min(classesByGrade.length, MAX_GRADES);
+  const classTargets = [];
+
+  if (classTarget) {
+    const available = Number(classesByGrade[classTarget.grade - 1] || 0);
+    if (!Number.isFinite(available) || classTarget.classNo > available) {
+      throw new Error('COMCIGAN_CLASS_NOT_FOUND');
+    }
+    classTargets.push({ grade: classTarget.grade, classNum: classTarget.classNo });
+  } else {
+    for (let grade = 1; grade <= gradeCount; grade += 1) {
+      const rawClassCount = Number(classesByGrade[grade - 1] || 0);
+      const classCount = Number.isFinite(rawClassCount)
+        ? Math.max(0, Math.min(Math.trunc(rawClassCount), MAX_CLASSES_PER_GRADE))
+        : 0;
+      for (let classNum = 1; classNum <= classCount; classNum += 1) {
+        classTargets.push({ grade, classNum });
+      }
+    }
+  }
+
+  const monday = mondayOf(date);
+  const requestedWeekday = date.getDay();
+  if (scope === 'day' && (requestedWeekday < 1 || requestedWeekday > 5)) {
     return {
       provider: 'comcigan',
       school: { name: school.name, region: school.region, code: school.code },
@@ -94,49 +166,40 @@ async function fromComcigan({ schoolName, region, date }) {
     };
   }
 
-  const classesByGrade = Array.isArray(info.classes) ? info.classes : [];
-  const gradeCount = Math.min(classesByGrade.length, MAX_GRADES);
-  const classTargets = [];
-
-  for (let grade = 1; grade <= gradeCount; grade += 1) {
-    const rawClassCount = Number(classesByGrade[grade - 1] || 0);
-    const classCount = Number.isFinite(rawClassCount)
-      ? Math.max(0, Math.min(Math.trunc(rawClassCount), MAX_CLASSES_PER_GRADE))
-      : 0;
-    for (let classNum = 1; classNum <= classCount; classNum += 1) {
-      classTargets.push({ grade, classNum });
-    }
-  }
-
   const rowGroups = await runWithConcurrency(
     classTargets,
     COMCIGAN_CONCURRENCY,
     async ({ grade, classNum }) => {
       const weekly = await comci.timetable({ grade, classNum });
-      const day = weekly?.[weekday - 1];
-      const items = day?.items || [];
+      const weekdays = scope === 'week' ? [1, 2, 3, 4, 5] : [requestedWeekday];
       const rows = [];
 
-      items.forEach((item, index) => {
-        if (!isPeSubject(item.subject)) return;
-        rows.push({
-          grade,
-          classNo: classNum,
-          period: index + 1,
-          subject: item.subject,
-          teacher: item.teacher || '',
-          classroom: item.classRoom || '',
-          changed: Boolean(item.original),
-          originalSubject: item.original?.subject || '',
-          originalTeacher: item.original?.teacher || '',
+      weekdays.forEach((weekday) => {
+        const day = weekly?.[weekday - 1];
+        const items = day?.items || [];
+        const rowDate = new Date(monday);
+        rowDate.setDate(monday.getDate() + weekday - 1);
+
+        items.forEach((item, index) => {
+          if (!isPeSubject(item.subject)) return;
+          rows.push(normalizeComciganItem(item, index, {
+            grade,
+            classNum,
+            weekday,
+            date: rowDate,
+          }));
         });
       });
+
       return rows;
     },
   );
 
   const rows = rowGroups.flat();
-  rows.sort((a, b) => a.period - b.period || a.grade - b.grade || a.classNo - b.classNo);
+  rows.sort((a, b) => a.date.localeCompare(b.date)
+    || a.period - b.period
+    || a.grade - b.grade
+    || a.classNo - b.classNo);
 
   return {
     provider: 'comcigan',
@@ -147,10 +210,11 @@ async function fromComcigan({ schoolName, region, date }) {
   };
 }
 
-async function fromNeis({ officeCode, schoolCode, date }) {
+async function fetchNeisDay({ officeCode, schoolCode, date, classTarget }) {
   if (!validOfficeCode(officeCode) || !validSchoolCode(schoolCode)) {
     throw new Error('NEIS_SCHOOL_CODE_INVALID');
   }
+
   const params = new URLSearchParams({
     Type: 'json',
     pIndex: '1',
@@ -166,12 +230,15 @@ async function fromNeis({ officeCode, schoolCode, date }) {
   const data = await response.json();
   const dataset = data?.hisTimetable;
   const rawRows = dataset?.[1]?.row || [];
-  const rows = rawRows
+
+  return rawRows
     .filter((row) => isPeSubject(row.ITRT_CNTNT))
     .map((row) => ({
       grade: Number(row.GRADE),
       classNo: Number(row.CLASS_NM),
       period: Number(row.PERIO),
+      weekday: date.getDay(),
+      date: toDateKey(date),
       subject: row.ITRT_CNTNT || '체육',
       teacher: '',
       classroom: '',
@@ -183,8 +250,31 @@ async function fromNeis({ officeCode, schoolCode, date }) {
       Number.isInteger(row.grade) && row.grade >= 1 && row.grade <= MAX_GRADES
       && Number.isInteger(row.classNo) && row.classNo >= 1 && row.classNo <= MAX_CLASSES_PER_GRADE
       && Number.isInteger(row.period) && row.period >= 1 && row.period <= 20
-    ))
-    .sort((a, b) => a.period - b.period || a.grade - b.grade || a.classNo - b.classNo);
+      && (!classTarget || (row.grade === classTarget.grade && row.classNo === classTarget.classNo))
+    ));
+}
+
+async function fromNeis({ officeCode, schoolCode, date, scope, classTarget }) {
+  let dates = [date];
+  if (scope === 'week') {
+    const monday = mondayOf(date);
+    dates = Array.from({ length: 5 }, (_, index) => {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + index);
+      return day;
+    });
+  }
+
+  const rowGroups = await Promise.all(dates.map((targetDate) => fetchNeisDay({
+    officeCode,
+    schoolCode,
+    date: targetDate,
+    classTarget,
+  })));
+  const rows = rowGroups.flat().sort((a, b) => a.date.localeCompare(b.date)
+    || a.period - b.period
+    || a.grade - b.grade
+    || a.classNo - b.classNo);
 
   return {
     provider: 'neis',
@@ -208,6 +298,8 @@ export default async function handler(req, res) {
   const officeCode = String(req.query.officeCode || '').trim();
   const schoolCode = String(req.query.schoolCode || '').trim();
   const date = parseYmd(req.query.date);
+  const scope = String(req.query.scope || 'day').trim();
+  const classTarget = parseClassTarget(req.query.grade, req.query.classNo);
 
   if (!schoolName || schoolName.length > MAX_SCHOOL_NAME_LENGTH) {
     return res.status(400).json({ error: 'INVALID_SCHOOL_NAME' });
@@ -218,10 +310,16 @@ export default async function handler(req, res) {
   if (!date) {
     return res.status(400).json({ error: 'INVALID_DATE' });
   }
+  if (!['day', 'week'].includes(scope)) {
+    return res.status(400).json({ error: 'INVALID_SCOPE' });
+  }
+  if (classTarget === false) {
+    return res.status(400).json({ error: 'INVALID_STUDENT_CLASS' });
+  }
 
   const failures = [];
   try {
-    const result = await fromComcigan({ schoolName, region, date });
+    const result = await fromComcigan({ schoolName, region, date, scope, classTarget });
     res.setHeader('Cache-Control', 's-maxage=180, stale-while-revalidate=300');
     return res.status(200).json({ ...result, fallbackUsed: false, failures });
   } catch (error) {
@@ -229,7 +327,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await fromNeis({ officeCode, schoolCode, date });
+    const result = await fromNeis({ officeCode, schoolCode, date, scope, classTarget });
     res.setHeader('Cache-Control', 's-maxage=180, stale-while-revalidate=300');
     return res.status(200).json({ ...result, fallbackUsed: true, failures });
   } catch (error) {
