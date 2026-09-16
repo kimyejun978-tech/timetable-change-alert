@@ -31,6 +31,25 @@ function safeParse(value) {
   }
 }
 
+function hasSchoolConfiguration() {
+  return Boolean(
+    localStorage.getItem(STORAGE_KEYS.schoolName) &&
+    localStorage.getItem(STORAGE_KEYS.schoolGrade) &&
+    localStorage.getItem(STORAGE_KEYS.schoolClass)
+  );
+}
+
+function updateFirstRunVisibility() {
+  const onboarding = document.querySelector("#first_run_onboarding");
+  const dashboard = document.querySelector("#dashboard_content");
+
+  if (!onboarding || !dashboard) return;
+
+  const configured = hasSchoolConfiguration();
+  onboarding.hidden = configured;
+  dashboard.hidden = !configured;
+}
+
 function getSeoulNow() {
   const parts = new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -248,6 +267,13 @@ function renderChanges() {
 }
 
 function showHomePage() {
+  updateFirstRunVisibility();
+
+  if (!hasSchoolConfiguration()) {
+    renderCommonSchoolInfo();
+    return;
+  }
+
   const schedule = getBasicSchedule(getTodayNumber());
   renderDate();
   renderCommonSchoolInfo();
@@ -276,6 +302,10 @@ function storeSchoolSetting() {
   showSchoolSetting();
   renderCommonSchoolInfo();
   alert("학교와 학급 설정을 저장했습니다.");
+
+  if (window.location.pathname.endsWith("settings.html")) {
+    window.location.href = "index.html";
+  }
 }
 
 function showSchoolSetting() {
