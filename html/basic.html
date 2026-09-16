@@ -3,71 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#102644">
+  <meta name="theme-color" content="#f4f8fc">
   <title>시간표 - 오늘</title>
   <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/school-ui.css">
+  <link rel="stylesheet" href="../css/school-ui.css?v=20260916-3">
   <script src="../js/data.js" defer></script>
   <script src="../js/main.js" defer></script>
-  <script type="module" src="../js/school-3d.js"></script>
+  <script type="module" src="../js/school-3d.js?v=20260916-3"></script>
 </head>
 <body class="school-ui">
   <div class="school-layout">
     <aside class="school-sidebar" aria-label="주요 메뉴">
       <div class="school-brand"><a href="index.html">오늘</a><p id="sidebar_school">학교를 설정해 주세요</p></div>
-      <nav class="school-nav">
-        <a href="index.html"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg><span>오늘</span></a>
-        <a class="active" href="basic.html"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9h16"/></svg><span>시간표</span></a>
-        <a href="result.html"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>변경 내역</span></a>
-        <a href="settings.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A8 8 0 0 0 15 6l-.3-2.6h-4L10.4 6A8 8 0 0 0 9 7.1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1A8 8 0 0 0 10.4 18l.3 2.6h4L15 18a8 8 0 0 0 1.5-1.1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z"/></svg><span>설정</span></a>
-      </nav>
+      <nav class="school-nav"><a href="index.html"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg><span>오늘</span></a><a class="active" href="basic.html"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9h16"/></svg><span>시간표</span></a><a href="result.html"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>변경 내역</span></a><a href="settings.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A8 8 0 0 0 15 6l-.3-2.6h-4L10.4 6A8 8 0 0 0 9 7.1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1A8 8 0 0 0 10.4 18l.3 2.6h4L15 18a8 8 0 0 0 1.5-1.1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z"/></svg><span>설정</span></a></nav>
       <div class="school-sidebar-footer"><strong>WEEKLY PLAN</strong><span>시간표를 정리하면<br>오늘이 더 단순해집니다.</span></div>
     </aside>
-
-    <main class="school-main">
-      <div class="school-page">
-        <header class="school-topbar"><span class="school-topbar-date" data-today-date>오늘</span><a class="school-profile" href="settings.html"><span class="school-profile-mark">교</span><span data-school-name>학교를 설정해 주세요</span><span data-class-label>학급 미설정</span></a></header>
-
-        <section class="school-hero">
-          <div class="school-hero-copy">
-            <p class="school-eyebrow">Timetable / weekly plan</p>
-            <h1>오늘의 수업을<br>내 방식으로 정리합니다.</h1>
-            <p>요일별 과목과 기본 수업 장소를 입력해 두면 홈 화면과 이동수업 판단의 기준으로 사용할 수 있습니다.</p>
-            <div class="school-hero-line"></div>
-            <p class="school-hero-note">현재는 브라우저에 저장하며, 이후 학교 시간표 데이터와 연결할 예정입니다.</p>
-          </div>
-          <div class="school-hero-visual" aria-hidden="true"><canvas class="school-3d-canvas" data-scene="schedule"></canvas></div>
-        </section>
-
-        <div class="school-section-title"><div><p class="school-eyebrow">01 / timetable</p><h2>시간표</h2></div><p>요일을 선택한 뒤 과목과 장소를 저장하세요.</p></div>
-
-        <section class="schedule-layout">
-          <article class="school-card schedule-editor-card">
-            <div class="day-selector" aria-label="요일 선택">
-              <button type="button" class="day-btn mon">월요일</button><button type="button" class="day-btn tues">화요일</button><button type="button" class="day-btn wednes">수요일</button><button type="button" class="day-btn thurs">목요일</button><button type="button" class="day-btn fri">금요일</button>
-            </div>
-            <div id="scheduleArea"></div>
-          </article>
-
-          <aside class="school-stack">
-            <section class="school-card utility-card">
-              <div class="school-card-head"><h3>빠른 기능</h3></div>
-              <div class="utility-list">
-                <button class="utility-item" type="button" disabled><div><strong>시간표 자동 불러오기</strong><span>학교 데이터 연동 후 제공</span></div></button>
-                <button class="utility-item" type="button" disabled><div><strong>다른 학기에서 가져오기</strong><span>계정 저장 기능과 함께 제공</span></div></button>
-                <button class="utility-item" type="button" disabled><div><strong>시간표 템플릿</strong><span>학교별 기본 시간표 지원 예정</span></div></button>
-              </div>
-            </section>
-            <section class="school-card">
-              <div class="school-card-head"><h3>시간표 활용</h3></div>
-              <div class="meal-content"><p class="empty-state-title">장소까지 같이 적어두세요.</p><p class="empty-state-text">현재 수업 장소와 다음 수업 장소를 비교해 이동수업 알림을 판단할 수 있도록 설계하고 있습니다.</p></div>
-            </section>
-          </aside>
-        </section>
-      </div>
-    </main>
+    <main class="school-main"><div class="school-page">
+      <header class="school-topbar"><span class="school-topbar-date" data-today-date>오늘</span><a class="school-profile" href="settings.html"><span class="school-profile-mark">교</span><span data-school-name>학교를 설정해 주세요</span><span data-class-label>학급 미설정</span></a></header>
+      <section class="school-hero"><div class="school-hero-copy"><p class="school-eyebrow">Timetable / weekly plan</p><h1>오늘의 수업을<br>내 방식으로 정리합니다.</h1><p>요일별 과목과 기본 수업 장소를 입력해 두면 홈 화면과 이동수업 판단의 기준으로 사용할 수 있습니다.</p><div class="school-hero-line"></div><p class="school-hero-note">매주 보는 시간표를 더 보기 좋고 편하게 관리합니다.</p></div><div class="school-hero-visual" aria-hidden="true"><canvas class="school-3d-canvas" data-scene="schedule"></canvas></div></section>
+      <div class="school-section-title"><div><p class="school-eyebrow">01 / timetable</p><h2>시간표</h2></div><p>요일을 선택한 뒤 과목과 장소를 저장하세요.</p></div>
+      <section class="schedule-layout"><article class="school-card schedule-editor-card"><div class="day-selector" aria-label="요일 선택"><button type="button" class="day-btn mon">월요일</button><button type="button" class="day-btn tues">화요일</button><button type="button" class="day-btn wednes">수요일</button><button type="button" class="day-btn thurs">목요일</button><button type="button" class="day-btn fri">금요일</button></div><div id="scheduleArea"></div></article><aside class="school-stack"><section class="school-card utility-card"><div class="school-card-head"><h3>빠른 기능</h3></div><div class="utility-list"><button class="utility-item" type="button" disabled><div><strong>시간표 자동 불러오기</strong><span>학교 데이터 연동 후 제공</span></div></button><button class="utility-item" type="button" disabled><div><strong>다른 학기에서 가져오기</strong><span>계정 저장 기능과 함께 제공</span></div></button><button class="utility-item" type="button" disabled><div><strong>시간표 템플릿</strong><span>학교별 기본 시간표 지원 예정</span></div></button></div></section><section class="school-card"><div class="school-card-head"><h3>시간표 활용</h3></div><div class="meal-content"><p class="empty-state-title">장소까지 같이 적어두세요.</p><p class="empty-state-text">현재 수업 장소와 다음 수업 장소를 비교해 이동수업 알림을 판단할 수 있도록 설계하고 있습니다.</p></div></section></aside></section>
+    </div></main>
   </div>
-
   <nav class="school-mobile-nav" aria-label="모바일 주요 메뉴"><a href="index.html">오늘</a><a class="active" href="basic.html">시간표</a><a href="result.html">변경</a><a href="settings.html">설정</a></nav>
-</body>
-</html>
+</body></html>
