@@ -10,7 +10,6 @@ const STORAGE_KEYS = {
   moveAlertTwo: "moveAlertTwo",
 };
 
-// 학교별 수업 시간 연동 전까지 사용하는 기본 표시 시간이다.
 const PERIOD_TIMES = [
   { start: "08:50", end: "09:40" },
   { start: "09:50", end: "10:40" },
@@ -23,7 +22,6 @@ const PERIOD_TIMES = [
 
 function safeParse(value) {
   if (value === null) return null;
-
   try {
     return JSON.parse(value);
   } catch (error) {
@@ -42,7 +40,6 @@ function hasSchoolConfiguration() {
 function updateFirstRunVisibility() {
   const onboarding = document.querySelector("#first_run_onboarding");
   const dashboard = document.querySelector("#dashboard_content");
-
   if (!onboarding || !dashboard) return;
 
   const configured = hasSchoolConfiguration();
@@ -90,8 +87,6 @@ function getTodayNumber() {
   };
 
   const todayNumber = weekdayMap[weekday];
-
-  // 주말에는 다음 학교 일정 확인용으로 월요일 시간표를 보여준다.
   if (todayNumber === 0 || todayNumber === 6) return 1;
   return todayNumber;
 }
@@ -133,7 +128,6 @@ function getCurrentPeriodState() {
     if (currentMinutes >= start && currentMinutes < end) {
       return { current: i, next: i + 1 < PERIOD_TIMES.length ? i + 1 : -1 };
     }
-
     if (currentMinutes < start) {
       return { current: -1, next: i };
     }
@@ -173,7 +167,6 @@ function renderNextClass(schedule) {
   const nextIndex = state.next;
   const title = document.querySelector("#next-class-title");
   const badge = document.querySelector("#next-class-badge");
-
   if (!title || !badge) return;
 
   if (nextIndex === -1) {
@@ -217,7 +210,6 @@ function renderTimetable(schedule) {
 
   schedule.forEach(function (subject, index) {
     const row = document.createElement("tr");
-
     if (index === state.current) row.classList.add("current-row");
     if (index === state.next) row.classList.add("next-row");
 
@@ -268,7 +260,6 @@ function renderChanges() {
 
 function showHomePage() {
   updateFirstRunVisibility();
-
   if (!hasSchoolConfiguration()) {
     renderCommonSchoolInfo();
     return;
@@ -286,7 +277,6 @@ function storeSchoolSetting() {
   const schoolNameInput = document.querySelector("#school_name_input");
   const gradeSelect = document.querySelector("#grade_select");
   const classSelect = document.querySelector("#class_select");
-
   if (!schoolNameInput || !gradeSelect || !classSelect) return;
 
   const schoolName = schoolNameInput.value.trim();
@@ -313,9 +303,9 @@ function showSchoolSetting() {
   const schoolGrade = localStorage.getItem(STORAGE_KEYS.schoolGrade);
   const schoolClass = localStorage.getItem(STORAGE_KEYS.schoolClass);
 
-  setText("#now_school_text", "학교  " + (schoolName || "아직 설정하지 않음"));
-  setText("#now_grade_text", "학년  " + (schoolGrade ? schoolGrade + "학년" : "아직 설정하지 않음"));
-  setText("#now_class_text", "반  " + (schoolClass ? schoolClass + "반" : "아직 설정하지 않음"));
+  setText("#now_school_text", schoolName || "아직 설정하지 않음");
+  setText("#now_grade_text", schoolGrade ? schoolGrade + "학년" : "아직 설정하지 않음");
+  setText("#now_class_text", schoolClass ? schoolClass + "반" : "아직 설정하지 않음");
 
   const schoolNameInput = document.querySelector("#school_name_input");
   const gradeSelect = document.querySelector("#grade_select");
@@ -330,7 +320,6 @@ function loadNotificationSettings() {
   const enabled = document.querySelector("#move_notification_enabled");
   const firstAlert = document.querySelector("#move_alert_one");
   const secondAlert = document.querySelector("#move_alert_two");
-
   if (!enabled || !firstAlert || !secondAlert) return;
 
   const enabledValue = localStorage.getItem(STORAGE_KEYS.moveNotificationEnabled);
@@ -343,7 +332,6 @@ function saveNotificationSettings() {
   const enabled = document.querySelector("#move_notification_enabled");
   const firstAlert = document.querySelector("#move_alert_one");
   const secondAlert = document.querySelector("#move_alert_two");
-
   if (!enabled || !firstAlert || !secondAlert) return;
 
   localStorage.setItem(STORAGE_KEYS.moveNotificationEnabled, enabled.value);
