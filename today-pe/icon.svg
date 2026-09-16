@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="오늘체육">
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+  <circle cx="256" cy="256" r="142" fill="#ffffff" opacity="0.98"/>
+  <path d="M256 125c72 0 131 59 131 131s-59 131-131 131-131-59-131-131 59-131 131-131Z" fill="none" stroke="#2563eb" stroke-width="18"/>
+  <path d="M256 125v262M125 256h262M164 164l184 184M348 164 164 348" fill="none" stroke="#2563eb" stroke-width="13" stroke-linecap="round" opacity="0.72"/>
+  <circle cx="256" cy="256" r="38" fill="#2563eb"/>
+</svg>

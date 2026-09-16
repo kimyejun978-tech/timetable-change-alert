@@ -1,0 +1,150 @@
+.weather-card { overflow: hidden; }
+.weather-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  margin-top: 10px;
+}
+.weather-now {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 20px;
+  background: var(--primary-soft);
+}
+.weather-icon { font-size: 42px; line-height: 1; }
+.weather-now strong { display: block; font-size: 32px; letter-spacing: -.04em; }
+.weather-now span:not(.weather-icon) { display: block; margin-top: 4px; color: var(--muted); }
+.weather-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.weather-stats > div { padding: 15px; border: 1px solid var(--line); border-radius: 16px; }
+.weather-stats small, .weather-stats strong { display: block; }
+.weather-stats small { color: var(--muted); margin-bottom: 6px; }
+.data-source { display: block; margin-top: 12px; color: var(--muted); line-height: 1.5; }
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: #ecfdf3;
+  color: #067647;
+  font-size: 12px;
+  font-weight: 800;
+}
+.neis-schedule { display: grid; gap: 10px; margin-top: 12px; }
+.schedule-item {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+.schedule-item.weather-risk { border-color: #f7c66b; background: #fffbeb; }
+.schedule-filter-hidden { display: none !important; }
+.schedule-filter-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.schedule-filter-bar .segment-control { margin-bottom: 0; }
+.schedule-filter-summary { color: var(--muted); }
+.schedule-filter-empty { margin: 8px 0 0; }
+.timetable-alias-panel { margin: 10px 0 4px; padding: 13px 15px; border-radius: 15px; }
+.timetable-alias-panel summary { cursor: pointer; }
+.timetable-alias-panel p { margin: 9px 0; }
+.inline-form-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.inline-form-row input { min-width: 0; }
+.schedule-period { display: grid; gap: 4px; align-self: stretch; align-content: center; border-right: 1px solid var(--line); }
+.schedule-period strong { color: var(--primary); font-size: 16px; }
+.schedule-period small { color: var(--muted); }
+.schedule-main { min-width: 0; display: grid; gap: 5px; }
+.schedule-main > small { color: var(--muted); }
+.schedule-title-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.schedule-title-line strong { font-size: 16px; }
+.change-chip { display: inline-flex; border-radius: 999px; background: #fff1f2; color: #be123c; padding: 4px 8px; font-size: 11px; font-weight: 800; }
+.period-weather { font-size: 13px; color: #344054; }
+.weather-warning { color: #b54708; font-size: 12px; font-weight: 800; }
+.schedule-action { display: flex; justify-content: flex-end; }
+.teacher-summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+.teacher-summary-row > div { border-radius: 16px; background: var(--surface-soft); padding: 14px 16px; }
+.teacher-summary-row small, .teacher-summary-row strong { display: block; }
+.teacher-summary-row small { margin-bottom: 5px; color: var(--muted); }
+.segment-control { display: inline-flex; gap: 4px; margin: 2px 0 16px; padding: 4px; border-radius: 13px; background: var(--surface-soft); }
+.segment-button { border: 0; border-radius: 10px; background: transparent; padding: 9px 13px; color: var(--muted); font-weight: 800; }
+.segment-button.selected { background: #fff; color: var(--text); box-shadow: 0 2px 7px rgba(16, 24, 40, .08); }
+.lesson-row-main { display: flex; align-items: center; gap: 12px; }
+.period-badge { flex: 0 0 auto; border-radius: 11px; background: var(--primary-soft); color: var(--primary); padding: 9px 10px; font-weight: 900; }
+.teacher-owner { color: #475467 !important; }
+.read-only-label { color: var(--muted); font-size: 12px; font-weight: 700; }
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow-y: auto;
+  padding: 30px 14px;
+  background: rgba(15, 23, 42, .48);
+  backdrop-filter: blur(5px);
+}
+.modal-card { max-width: 860px; margin: 0 auto; }
+.brand-link { text-decoration: none; }
+
+.collaboration-fieldset { display: grid; gap: 10px; }
+.teacher-choice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 9px; }
+.teacher-choice-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+.teacher-choice-card:has(input:checked) { border-color: #84adff; background: #eff6ff; }
+.teacher-choice-card input { width: 17px; height: 17px; }
+.teacher-choice-card span { display: grid; gap: 2px; }
+.teacher-choice-card small { color: var(--muted); }
+.history-panel { padding: 15px; border-radius: 16px; background: var(--surface-soft); }
+.history-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.history-heading small { display: block; margin-top: 3px; color: var(--muted); }
+.history-list { display: grid; gap: 8px; }
+.history-item { padding: 11px 12px; border-radius: 12px; background: #fff; border: 1px solid var(--line); }
+.history-item strong, .history-item small, .history-item span { display: block; }
+.history-item small { margin-top: 4px; color: var(--muted); }
+.history-item span { margin-top: 5px; font-size: 13px; color: #344054; line-height: 1.45; }
+.admin-access-panel { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.admin-access-panel .teacher-lesson-item { align-items: center; }
+.admin-access-panel .teacher-lesson-item > div:first-child { min-width: 0; }
+.admin-access-panel .teacher-lesson-item small { display: block; margin-top: 4px; color: var(--muted); }
+.admin-access-panel .danger-button { white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .weather-summary { grid-template-columns: 1fr; }
+  .schedule-item { grid-template-columns: 64px minmax(0, 1fr); }
+  .schedule-action { grid-column: 2; justify-content: flex-start; }
+  .schedule-period { align-self: start; }
+  .weather-stats { grid-template-columns: 1fr 1fr; }
+  .teacher-summary-row { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 480px) {
+  .teacher-summary-row, .weather-stats { grid-template-columns: 1fr; }
+  .schedule-item { grid-template-columns: 1fr; }
+  .schedule-period { border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+  .schedule-action { grid-column: auto; }
+  .history-heading { align-items: flex-start; }
+  .schedule-filter-bar { align-items: stretch; }
+  .schedule-filter-bar .segment-control { width: 100%; overflow-x: auto; }
+  .inline-form-row { grid-template-columns: 1fr; }
+  .inline-form-row .ghost-button { width: 100%; }
+  .admin-access-panel .teacher-lesson-item { align-items: stretch; }
+  .admin-access-panel .actions { width: 100%; }
+  .admin-access-panel .danger-button { width: 100%; }
+}

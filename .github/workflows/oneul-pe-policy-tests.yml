@@ -1,0 +1,70 @@
+name: Validate 오늘체육 API Policies
+
+on:
+  push:
+    branches: [feat/oneul-pe-mvp]
+    paths:
+      - 'api/**'
+      - 'today-pe/supabase/019_harden_teacher_registration_metadata.sql'
+      - 'tests/health-api.test.js'
+      - 'tests/push-policy.test.js'
+      - 'tests/timetable-api.test.js'
+      - 'tests/schools-api.test.js'
+      - 'package.json'
+      - '.github/workflows/oneul-pe-policy-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'today-pe/supabase/019_harden_teacher_registration_metadata.sql'
+      - 'tests/health-api.test.js'
+      - 'tests/push-policy.test.js'
+      - 'tests/timetable-api.test.js'
+      - 'tests/schools-api.test.js'
+      - 'package.json'
+      - '.github/workflows/oneul-pe-policy-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  policy-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-package-lock
+
+      - name: Syntax check
+        run: |
+          node --check api/health.js
+          node --check api/schools.js
+          node --check api/timetable.js
+          node --check api/push/push-policy.js
+          node --check api/push/send.js
+          node --check api/push/subscribe.js
+          node --check tests/health-api.test.js
+          node --check tests/push-policy.test.js
+          node --check tests/timetable-api.test.js
+          node --check tests/schools-api.test.js
+
+      - name: Teacher registration metadata policy
+        run: |
+          grep -q "on conflict (neis_office_code, neis_school_code) do nothing" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          grep -q "SCHOOL_CHANGE_REQUIRES_OPERATOR" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          grep -q "INVALID_TEACHER_NAME" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          grep -q "INVALID_SCHOOL_CODE" today-pe/supabase/019_harden_teacher_registration_metadata.sql
+          if grep -q "do update set" today-pe/supabase/019_harden_teacher_registration_metadata.sql; then exit 1; fi
+
+      - name: Health API readiness contract
+        run: node tests/health-api.test.js
+
+      - name: Web Push delivery policy
+        run: node tests/push-policy.test.js
+
+      - name: Timetable API input policy
+        run: node tests/timetable-api.test.js
+
+      - name: School search API input policy
+        run: node tests/schools-api.test.js

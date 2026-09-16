@@ -1,0 +1,19 @@
+{
+  "name": "오늘체육",
+  "short_name": "오늘체육",
+  "description": "학교 체육수업 종목·장소·준비물 안내 서비스",
+  "lang": "ko-KR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

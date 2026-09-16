@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>오늘체육 · 교사 로그인</title>
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./design-refresh.css" />
+  <link rel="stylesheet" href="./portal-switch.css" />
+</head>
+<body>
+  <header class="topbar auth-topbar">
+    <a class="brand-button brand-link" href="./index.html">오늘체육</a>
+    <div class="topbar-actions">
+      <nav class="portal-switch" aria-label="포털 전환">
+        <a class="portal-switch-link" href="./student.html">학생 포털</a>
+        <a class="portal-switch-link active" href="./teacher-login.html" aria-current="page">교사 포털</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="view teacher-login-view">
+      <div class="page-card narrow teacher-login-card-upgraded">
+        <a class="text-button back-link" href="./index.html">← 처음 화면</a>
+        <div class="teacher-login-intro">
+          <span class="eyebrow">Teacher only</span>
+          <h2>교사 계정으로 로그인</h2>
+          <p class="muted">학교 전체 체육수업을 효율적으로 관리하세요.</p>
+        </div>
+
+        <section id="teacherSchoolStep">
+          <form id="teacherSchoolSearchForm" class="search-row">
+            <input id="teacherSchoolSearchInput" type="search" placeholder="소속 학교 검색" autocomplete="off" />
+            <button class="primary-button" type="submit">검색</button>
+          </form>
+          <p id="teacherSchoolSearchStatus" class="status-text"></p>
+          <div id="teacherSchoolResults" class="school-results"></div>
+        </section>
+
+        <form id="teacherLoginForm" class="form-stack hidden setup-second-step">
+          <div id="teacherSchoolSummary" class="selection-summary"></div>
+          <label>이름
+            <input id="teacherName" type="text" maxlength="20" placeholder="예: 김체육" required />
+          </label>
+          <label>이메일
+            <input id="teacherEmail" type="email" maxlength="120" placeholder="teacher@example.com" required />
+          </label>
+          <label>교사 비밀번호
+            <input id="teacherPassword" type="password" minlength="8" maxlength="72" placeholder="8자 이상" autocomplete="current-password" required />
+            <small class="field-help">교사 계정은 이메일과 비밀번호로 인증됩니다.</small>
+          </label>
+          <button id="teacherLoginButton" class="primary-button full" type="submit">교사 화면 들어가기</button>
+        </form>
+
+        <section class="security-note">
+          <strong id="backendModeLabel">인증 상태 확인 중…</strong>
+          <p id="backendModeDescription">교사 인증 및 권한 상태를 확인하고 있습니다.</p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./config.js" defer></script>
+  <script src="/api/public-config" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="./shared.js" defer></script>
+  <script src="./backend.js" defer></script>
+  <script src="./teacher-auth-flow.js" defer></script>
+  <script src="./portal-switch.js" defer></script>
+  <script src="./teacher-school-lock.js" defer></script>
+  <script src="./teacher-approval-context.js" defer></script>
+  <script src="./teacher-login.js" defer></script>
+</body>
+</html>

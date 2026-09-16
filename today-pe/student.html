@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>오늘체육 · 학생</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./student-extra.css" />
+  <link rel="stylesheet" href="./design-refresh.css" />
+  <link rel="stylesheet" href="./portal-switch.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand-button brand-link" href="./student.html">오늘체육</a>
+      <div class="topbar-actions">
+        <button id="installAppButton" class="ghost-button small hidden" type="button">앱 설치</button>
+        <button id="enableNotificationsButton" class="ghost-button small" type="button">알림 켜기</button>
+        <nav class="portal-switch" aria-label="포털 전환">
+          <a class="portal-switch-link active" href="./student.html" aria-current="page">학생 포털</a>
+          <a class="portal-switch-link" href="./teacher-login.html">교사 포털</a>
+        </nav>
+        <span id="studentSchoolBadge" class="school-badge hidden" aria-hidden="true"></span>
+        <button id="studentResetButton" class="ghost-button small" type="button">학교/반 변경</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="studentSetupView" class="view hidden">
+        <div class="page-card narrow setup-card-upgraded">
+          <div class="setup-stepper" aria-label="학생 설정 단계">
+            <div class="setup-step active"><span>1</span><small>학교 선택</small></div>
+            <div class="setup-step"><span>2</span><small>학년 선택</small></div>
+            <div class="setup-step"><span>3</span><small>반 선택</small></div>
+          </div>
+
+          <span class="eyebrow">학생 설정</span>
+          <h2>학교를 선택해주세요</h2>
+          <p class="muted">전국 학교를 검색한 뒤 학년과 반을 한 번만 설정하면 됩니다.</p>
+
+          <form id="studentSchoolSearchForm" class="search-row search-row-upgraded">
+            <input id="studentSchoolSearchInput" type="search" placeholder="학교 이름을 검색하세요..." autocomplete="off" />
+            <button class="primary-button" type="submit">검색</button>
+          </form>
+          <p id="studentSchoolSearchStatus" class="status-text"></p>
+          <div id="studentSchoolResults" class="school-results"></div>
+
+          <form id="studentClassForm" class="form-stack hidden setup-second-step">
+            <div id="studentSchoolSummary" class="selection-summary"></div>
+            <label>학년
+              <select id="studentGrade" required>
+                <option value="">선택</option>
+                <option value="1">1학년</option>
+                <option value="2">2학년</option>
+                <option value="3">3학년</option>
+              </select>
+            </label>
+            <label>반
+              <input id="studentClassNo" type="number" min="1" max="30" placeholder="예: 2" required />
+            </label>
+            <button class="primary-button full" type="submit">학생 화면 시작</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="studentHomeView" class="view hidden">
+        <div class="dashboard-grid student-grid">
+          <section class="student-hero-panel">
+            <div class="student-hero-top">
+              <div>
+                <span class="eyebrow" id="studentDateLabel"></span>
+                <h2 id="studentClassLabel">오늘의 체육</h2>
+                <small id="studentBackendMode" class="muted"></small>
+              </div>
+              <button class="ghost-button" id="refreshStudentButton" type="button">새로고침</button>
+            </div>
+          </section>
+
+          <section id="todayLessons" class="today-lessons"></section>
+
+          <section class="page-card">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">최근 변경</span>
+                <div class="notification-heading">
+                  <h3>알림</h3>
+                  <span id="studentUnreadBadge" class="notification-badge hidden">0</span>
+                </div>
+              </div>
+              <button id="markAllNotificationsReadButton" class="ghost-button small" type="button">모두 읽음</button>
+            </div>
+            <p id="studentNotificationStatus" class="status-text"></p>
+            <div id="studentNotificationList" class="notification-list"></div>
+          </section>
+
+          <section class="page-card">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">이번 주</span>
+                <h3>체육 일정</h3>
+              </div>
+            </div>
+            <div id="weekLessonList" class="week-list"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./config.js" defer></script>
+  <script src="/api/public-config" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="./shared.js" defer></script>
+  <script src="./backend.js" defer></script>
+  <script src="./student-privacy.js" defer></script>
+  <script src="./student-resilience.js" defer></script>
+  <script src="./pwa.js" defer></script>
+  <script src="./student.js" defer></script>
+  <script src="./student-week-timetable.js" defer></script>
+  <script src="./student-push-profile-sync.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>오늘체육 · 교사</title>
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./teacher-extra.css" />
+  <link rel="stylesheet" href="./design-refresh.css" />
+  <link rel="stylesheet" href="./portal-switch.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand-button brand-link" href="./teacher.html">오늘체육</a>
+      <div class="topbar-actions">
+        <nav class="portal-switch" aria-label="포털 전환">
+          <a class="portal-switch-link" href="./student.html">학생 포털</a>
+          <a class="portal-switch-link teacher-active active" href="./teacher.html" aria-current="page">교사 포털</a>
+        </nav>
+        <span id="teacherSchoolBadge" class="school-badge"></span>
+        <button id="teacherLogoutButton" class="ghost-button small" type="button">로그아웃</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="view">
+        <div class="dashboard-grid teacher-dashboard">
+          <section class="page-card teacher-school-card">
+            <span class="eyebrow">교사 포털</span>
+            <h2 id="teacherSchoolName">학교</h2>
+            <p id="teacherSchoolAddress" class="muted"></p>
+            <div class="teacher-summary-row">
+              <div><small>로그인 교사</small><strong id="teacherIdentity"></strong></div>
+              <div><small>권한</small><strong id="teacherRoleLabel"></strong></div>
+              <div><small>오늘</small><strong id="teacherTodayLabel"></strong></div>
+            </div>
+            <small id="teacherBackendMode" class="data-source"></small>
+          </section>
+
+          <section id="teacherApprovalCard" class="page-card hidden">
+            <div class="section-heading teacher-heading">
+              <div><span class="eyebrow">학교 관리자</span><h3>교사 승인</h3></div>
+              <button id="refreshPendingTeachersButton" class="ghost-button" type="button">새로고침</button>
+            </div>
+            <p class="muted">이 학교에 새로 가입한 체육교사를 확인한 뒤 승인합니다. 승인 전에는 교사용 관리 화면을 사용할 수 없습니다.</p>
+            <div id="pendingTeacherList" class="teacher-lesson-list"></div>
+          </section>
+
+          <section class="page-card weather-card">
+            <div class="section-heading teacher-heading">
+              <div><span class="eyebrow">학교 위치 기준</span><h3>오늘 날씨</h3></div>
+              <button id="refreshWeatherButton" class="ghost-button" type="button">새로고침</button>
+            </div>
+            <p id="weatherStatus" class="status-text">학교 위치와 날씨를 불러오는 중입니다…</p>
+            <div id="weatherSummary" class="weather-summary hidden">
+              <div class="weather-now"><span id="weatherIcon" class="weather-icon">🌡️</span><div><strong id="weatherTemp">--℃</strong><span id="weatherDescription">날씨</span></div></div>
+              <div class="weather-stats">
+                <div><small>최고 / 최저</small><strong id="weatherHighLow">--</strong></div>
+                <div><small>최대 강수확률</small><strong id="weatherRainMax">--</strong></div>
+              </div>
+            </div>
+            <small id="weatherSource" class="data-source"></small>
+          </section>
+
+          <section class="page-card">
+            <div class="section-heading teacher-heading">
+              <div><span class="eyebrow">컴시간 우선 · NEIS 보조</span><h3>오늘 체육 시간표</h3></div>
+              <button id="refreshScheduleButton" class="ghost-button" type="button">다시 불러오기</button>
+            </div>
+            <div id="scheduleProviderBadge" class="provider-badge hidden"></div>
+            <p id="scheduleStatus" class="status-text">오늘 시간표를 불러오는 중입니다…</p>
+            <div id="peSchedule" class="neis-schedule"></div>
+          </section>
+
+          <section class="page-card">
+            <div class="section-heading teacher-heading">
+              <div><span class="eyebrow">교사 입력</span><h3>등록된 수업 안내</h3></div>
+              <button id="newLessonButton" class="primary-button" type="button">+ 수업 등록</button>
+            </div>
+            <div class="segment-control" role="group" aria-label="수업 필터">
+              <button id="allLessonsFilter" class="segment-button selected" type="button">전체 수업</button>
+              <button id="myLessonsFilter" class="segment-button" type="button">내 수업만</button>
+            </div>
+            <div id="teacherLessonList" class="teacher-lesson-list"></div>
+          </section>
+
+          <section class="page-card subtle-card">
+            <strong>시간표 데이터 우선순위</strong>
+            <p>1순위는 컴시간알리미입니다. 컴시간에서 학교 검색 또는 시간표 조회가 실패하는 경우에만 NEIS 고등학교 시간표 API로 자동 전환합니다.</p>
+          </section>
+        </div>
+      </section>
+
+      <section id="lessonEditorOverlay" class="modal-backdrop hidden" aria-hidden="true">
+        <div class="page-card editor-card modal-card" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+          <button id="editorCloseButton" class="text-button back-button" type="button">← 닫기</button>
+          <span class="eyebrow">수업 정보</span>
+          <h2 id="editorTitle">수업 등록</h2>
+
+          <form id="lessonForm" class="form-grid">
+            <input id="lessonId" type="hidden" />
+            <label>날짜<input id="lessonDate" type="date" required /></label>
+            <label>교시
+              <select id="lessonPeriod" required>
+                <option value="">선택</option>
+                <option value="1">1교시</option><option value="2">2교시</option><option value="3">3교시</option>
+                <option value="4">4교시</option><option value="5">5교시</option><option value="6">6교시</option>
+                <option value="7">7교시</option><option value="8">8교시</option>
+              </select>
+            </label>
+            <label>학년
+              <select id="lessonGrade" required>
+                <option value="">선택</option>
+                <option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option>
+              </select>
+            </label>
+            <label>반
+              <input id="lessonClasses" type="text" placeholder="예: 1, 2, 3" required />
+              <small class="field-help">여러 반은 쉼표로 구분하세요.</small>
+            </label>
+
+            <fieldset class="full-span">
+              <legend>종목</legend>
+              <div class="choice-grid" id="activityChoices">
+                <button type="button" class="choice-button" data-value="축구">⚽ 축구</button>
+                <button type="button" class="choice-button" data-value="농구">🏀 농구</button>
+                <button type="button" class="choice-button" data-value="배드민턴">🏸 배드민턴</button>
+                <button type="button" class="choice-button" data-value="배구">🏐 배구</button>
+                <button type="button" class="choice-button" data-value="탁구">🏓 탁구</button>
+                <button type="button" class="choice-button" data-value="자유체육">🎯 자유체육</button>
+              </div>
+              <input id="lessonActivity" type="text" placeholder="선택하거나 직접 입력" required />
+            </fieldset>
+
+            <fieldset class="full-span">
+              <legend>장소</legend>
+              <div class="choice-grid" id="locationChoices">
+                <button type="button" class="choice-button" data-value="운동장">운동장</button>
+                <button type="button" class="choice-button" data-value="체육관">체육관</button>
+                <button type="button" class="choice-button" data-value="교실">교실</button>
+                <button type="button" class="choice-button" data-value="기타">기타</button>
+              </div>
+              <input id="lessonLocation" type="text" placeholder="선택하거나 직접 입력" required />
+            </fieldset>
+
+            <fieldset class="full-span">
+              <legend>준비물</legend>
+              <div class="check-row">
+                <label class="check-chip"><input type="checkbox" name="equipment" value="체육복" /> 체육복</label>
+                <label class="check-chip"><input type="checkbox" name="equipment" value="운동화" /> 운동화</label>
+                <label class="check-chip"><input type="checkbox" name="equipment" value="개인 라켓" /> 개인 라켓</label>
+                <label class="check-chip"><input type="checkbox" name="equipment" value="없음" /> 없음</label>
+              </div>
+            </fieldset>
+
+            <fieldset class="full-span collaboration-fieldset">
+              <legend>공동 담당 교사</legend>
+              <p class="field-help">이 수업을 함께 관리할 선생님을 선택하세요. 일반 교사는 본인을 공동 담당에서 제외할 수 없습니다.</p>
+              <div id="lessonTeacherChoices" class="teacher-choice-list"></div>
+            </fieldset>
+
+            <label class="full-span">추가 안내
+              <textarea id="lessonNotice" rows="4" maxlength="200" placeholder="예: 우천 시 체육관으로 변경됩니다."></textarea>
+            </label>
+
+            <section id="lessonHistorySection" class="full-span history-panel hidden">
+              <div class="history-heading">
+                <div><strong>변경 이력</strong><small>누가 무엇을 바꿨는지 확인할 수 있습니다.</small></div>
+                <button id="refreshLessonHistoryButton" class="ghost-button small" type="button">새로고침</button>
+              </div>
+              <div id="lessonHistoryList" class="history-list"></div>
+            </section>
+
+            <div class="editor-actions full-span">
+              <button id="deleteLessonButton" class="danger-button hidden" type="button">삭제</button>
+              <button class="primary-button" type="submit">저장하기</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./config.js" defer></script>
+  <script src="/api/public-config" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="./shared.js" defer></script>
+  <script src="./push-client.js" defer></script>
+  <script src="./backend.js" defer></script>
+  <script src="./teacher-auth-flow.js" defer></script>
+  <script src="./portal-switch.js" defer></script>
+  <script src="./teacher-session-guard.js" defer></script>
+  <script src="./teacher.js" defer></script>
+  <script src="./teacher-dashboard-controls.js" defer></script>
+  <script src="./teacher-admin-protection.js" defer></script>
+</body>
+</html>
