@@ -3,112 +3,132 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#17345b">
+  <meta name="theme-color" content="#0d1930">
   <title>오늘</title>
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="../css/onboarding.css">
+  <link rel="stylesheet" href="../css/home3d.css">
   <script src="../js/main.js" defer></script>
+  <script type="module" src="../js/home3d.js"></script>
 </head>
-<body>
-  <div class="app-layout">
-    <aside class="sidebar" aria-label="주요 메뉴">
-      <div class="brand-block">
+<body class="home-3d-page">
+  <div class="app-layout home3d-layout">
+    <aside class="sidebar home3d-sidebar" aria-label="주요 메뉴">
+      <div class="brand-block home3d-brand-block">
         <a class="brand" href="index.html">오늘</a>
         <p class="brand-school" id="sidebar_school">학교를 설정해 주세요</p>
       </div>
 
-      <nav class="side-nav">
+      <nav class="side-nav home3d-nav">
         <a class="active" href="index.html">오늘</a>
         <a href="basic.html">시간표</a>
         <a href="result.html">변경 내역</a>
         <a href="settings.html">설정</a>
       </nav>
 
-      <p class="sidebar-caption">학교의 필요한 정보를 한곳에서.</p>
+      <div class="sidebar-status">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>오늘 서비스 준비 중</span>
+      </div>
+      <p class="sidebar-caption">필요한 학교 정보를 한 화면에서.</p>
     </aside>
 
-    <main class="page-shell dashboard-page">
-      <section class="onboarding-screen" id="first_run_onboarding" hidden aria-labelledby="onboarding-title">
-        <div class="onboarding-copy">
-          <p class="eyebrow">처음 오셨나요?</p>
-          <h1 id="onboarding-title">먼저 학교를 설정해 주세요</h1>
-          <p class="onboarding-description">
-            학교와 학년, 반을 설정하면 오늘 시간표와 급식, 변경 알림을 내 학급 기준으로 보여드릴 수 있습니다.
+    <main class="page-shell home3d-shell">
+      <section class="first-run-3d" id="first_run_onboarding" hidden aria-labelledby="onboarding-title">
+        <div class="first-run-copy">
+          <p class="home3d-overline">START WITH YOUR SCHOOL</p>
+          <h1 id="onboarding-title">먼저 학교를<br>설정해 주세요.</h1>
+          <p class="first-run-description">
+            학교와 학년, 반을 한 번만 설정하면 시간표, 이동 알림, 급식과 일정을 내 학급 기준으로 정리해 보여줍니다.
           </p>
-
-          <div class="onboarding-points" aria-label="설정 후 제공 기능">
-            <div>
-              <strong>시간표</strong>
-              <span>내 학급의 오늘 수업과 변경사항을 확인합니다.</span>
-            </div>
-            <div>
-              <strong>이동 알림</strong>
-              <span>이동수업이 있으면 설정한 시간에 미리 알려줍니다.</span>
-            </div>
-            <div>
-              <strong>급식과 일정</strong>
-              <span>학교 기준으로 급식과 주요 일정을 한곳에 모읍니다.</span>
-            </div>
+          <div class="first-run-actions">
+            <a class="home3d-primary-button" href="settings.html">학교 설정 시작</a>
+            <span>설정은 언제든 변경할 수 있습니다.</span>
           </div>
+          <div class="first-run-features" aria-label="설정 후 제공 기능">
+            <div><strong>01</strong><span>오늘 시간표와 변경사항</span></div>
+            <div><strong>02</strong><span>10분 전 · 3분 전 이동 알림</span></div>
+            <div><strong>03</strong><span>급식과 수행평가 일정</span></div>
+          </div>
+        </div>
 
-          <a class="primary-link-button" href="settings.html">학교 설정 시작</a>
-          <p class="onboarding-footnote">설정은 나중에 언제든 변경할 수 있습니다.</p>
+        <div class="first-run-visual" aria-hidden="true">
+          <canvas class="home3d-canvas" data-scene="onboarding"></canvas>
+          <div class="scene-label scene-label-top">7 PERIODS</div>
+          <div class="scene-label scene-label-bottom">YOUR DAY · ORGANIZED</div>
         </div>
       </section>
 
       <div id="dashboard_content">
-        <header class="page-header">
+        <header class="home3d-topbar">
           <div>
-            <p class="eyebrow" id="today_weekday">오늘</p>
+            <p class="home3d-overline" id="today_weekday">오늘</p>
             <h1 id="today_date">오늘</h1>
-            <p class="page-subtitle" id="school_information">학교와 학급을 설정해 주세요.</p>
+            <p id="school_information">학교와 학급을 설정해 주세요.</p>
           </div>
-          <a class="text-link header-link" href="settings.html">학교 설정</a>
+          <div class="topbar-actions">
+            <span class="topbar-live"><span class="status-dot" aria-hidden="true"></span>서울 기준</span>
+            <a href="settings.html">학교 설정</a>
+          </div>
         </header>
 
-        <section class="dashboard-grid dashboard-top">
-          <article class="panel next-class-panel" aria-labelledby="next-class-title">
-            <div class="panel-heading compact-heading">
-              <div>
-                <p class="section-kicker">다음 수업</p>
-                <h2 id="next-class-title">다음 수업을 확인하는 중입니다</h2>
-              </div>
-              <span class="status-badge" id="next-class-badge">대기</span>
+        <section class="home3d-hero" aria-labelledby="next-class-title">
+          <div class="hero-copy">
+            <p class="hero-kicker">NEXT CLASS</p>
+            <div class="hero-title-row">
+              <h2 id="next-class-title">다음 수업을 확인하는 중입니다</h2>
+              <span class="hero-status" id="next-class-badge">대기</span>
             </div>
-            <div class="next-class-meta">
+            <div class="hero-meta">
               <span id="next-class-time">시간표를 설정해 주세요</span>
-              <span class="meta-divider" aria-hidden="true"></span>
+              <span aria-hidden="true">/</span>
               <span id="next-class-place">장소 정보 없음</span>
             </div>
-            <p class="next-class-note" id="next-class-note">시간표를 등록하면 다음 수업과 이동 알림 정보를 보여줍니다.</p>
-          </article>
+            <p class="hero-note" id="next-class-note">시간표를 등록하면 다음 수업과 이동 알림 정보를 보여줍니다.</p>
+            <div class="hero-actions">
+              <a href="basic.html">시간표 관리</a>
+              <a href="settings.html">이동 알림 설정</a>
+            </div>
+          </div>
 
-          <article class="panel changes-panel" aria-labelledby="changes-title">
-            <div class="panel-heading compact-heading">
-              <div>
-                <p class="section-kicker">오늘 변경사항</p>
-                <h2 id="changes-title">변경 내역</h2>
-              </div>
-              <a class="text-link" href="result.html">전체 보기</a>
+          <div class="hero-scene" aria-hidden="true">
+            <canvas class="home3d-canvas" data-scene="dashboard"></canvas>
+            <div class="hero-scene-index">
+              <span>MON</span><span>TUE</span><span class="active">TODAY</span><span>THU</span><span>FRI</span>
             </div>
-            <div id="changed_schedule_list" class="change-list" aria-live="polite">
-              <div class="empty-row">변경사항을 확인하고 있습니다.</div>
-            </div>
-          </article>
+          </div>
         </section>
 
-        <section class="dashboard-grid dashboard-main">
-          <article class="panel timetable-panel" aria-labelledby="timetable-title">
-            <div class="panel-heading">
+        <section class="daily-snapshot" aria-label="오늘 요약">
+          <div class="snapshot-item">
+            <span class="snapshot-label">변경사항</span>
+            <strong id="snapshot_changes">연동 준비 중</strong>
+            <a href="result.html">확인하기</a>
+          </div>
+          <div class="snapshot-item">
+            <span class="snapshot-label">급식</span>
+            <strong>NEIS 연동 준비 중</strong>
+            <span>학교 기준 자동 조회</span>
+          </div>
+          <div class="snapshot-item">
+            <span class="snapshot-label">다가오는 일정</span>
+            <strong>일정 연동 준비 중</strong>
+            <span>수행평가 · 과제</span>
+          </div>
+        </section>
+
+        <section class="home3d-content-grid">
+          <article class="home3d-timetable" aria-labelledby="timetable-title">
+            <div class="section-heading-line">
               <div>
-                <p class="section-kicker">오늘</p>
-                <h2 id="timetable-title">시간표</h2>
+                <p class="home3d-overline">TODAY</p>
+                <h2 id="timetable-title">오늘 시간표</h2>
               </div>
-              <a class="text-link" href="basic.html">시간표 관리</a>
+              <a href="basic.html">시간표 관리</a>
             </div>
 
-            <div class="table-wrap">
-              <table class="timetable-table">
+            <div class="table-wrap home3d-table-wrap">
+              <table class="timetable-table home3d-table">
                 <thead>
                   <tr>
                     <th>교시</th>
@@ -122,11 +142,24 @@
             </div>
           </article>
 
-          <div class="dashboard-side-stack">
-            <article class="panel meal-panel" aria-labelledby="meal-title">
-              <div class="panel-heading">
+          <aside class="home3d-rail">
+            <section class="rail-section" aria-labelledby="changes-title">
+              <div class="rail-heading">
                 <div>
-                  <p class="section-kicker">급식</p>
+                  <p class="home3d-overline">CHANGES</p>
+                  <h2 id="changes-title">오늘 변경사항</h2>
+                </div>
+                <a href="result.html">전체 보기</a>
+              </div>
+              <div id="changed_schedule_list" class="change-list" aria-live="polite">
+                <div class="empty-row">변경사항을 확인하고 있습니다.</div>
+              </div>
+            </section>
+
+            <section class="rail-section" aria-labelledby="meal-title">
+              <div class="rail-heading">
+                <div>
+                  <p class="home3d-overline">MEAL</p>
                   <h2 id="meal-title">오늘의 급식</h2>
                 </div>
                 <span class="muted-label" id="meal-date-label">오늘</span>
@@ -135,33 +168,33 @@
                 <p class="empty-state-title">급식 연동 준비 중</p>
                 <p class="empty-state-text">NEIS 급식 데이터를 연결하면 오늘 메뉴를 자동으로 표시합니다.</p>
               </div>
-            </article>
+            </section>
 
-            <article class="panel schedule-panel" aria-labelledby="upcoming-title">
-              <div class="panel-heading">
+            <section class="rail-section" aria-labelledby="upcoming-title">
+              <div class="rail-heading">
                 <div>
-                  <p class="section-kicker">일정</p>
+                  <p class="home3d-overline">UPCOMING</p>
                   <h2 id="upcoming-title">다가오는 일정</h2>
                 </div>
               </div>
               <div class="upcoming-list" id="upcoming-list">
                 <div class="empty-row">수행평가와 과제 연동 준비 중입니다.</div>
               </div>
-            </article>
-          </div>
-        </section>
+            </section>
 
-        <section class="panel notice-panel" aria-labelledby="notice-title">
-          <div class="panel-heading">
-            <div>
-              <p class="section-kicker">학교</p>
-              <h2 id="notice-title">공지사항</h2>
-            </div>
-          </div>
-          <div class="notice-empty">
-            <p>등록된 공지가 없습니다.</p>
-            <span>교사 공지 기능이 연결되면 이곳에 최신 공지가 표시됩니다.</span>
-          </div>
+            <section class="rail-section rail-notice" aria-labelledby="notice-title">
+              <div class="rail-heading">
+                <div>
+                  <p class="home3d-overline">NOTICE</p>
+                  <h2 id="notice-title">공지사항</h2>
+                </div>
+              </div>
+              <div class="notice-empty">
+                <p>등록된 공지가 없습니다.</p>
+                <span>교사 공지 기능이 연결되면 최신 공지가 표시됩니다.</span>
+              </div>
+            </section>
+          </aside>
         </section>
       </div>
     </main>
