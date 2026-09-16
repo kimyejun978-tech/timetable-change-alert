@@ -3,208 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0d1930">
+  <meta name="theme-color" content="#102644">
   <title>오늘</title>
   <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/onboarding.css">
-  <link rel="stylesheet" href="../css/home3d.css">
+  <link rel="stylesheet" href="../css/school-ui.css">
   <script src="../js/main.js" defer></script>
-  <script type="module" src="../js/home3d.js"></script>
+  <script type="module" src="../js/school-3d.js"></script>
 </head>
-<body class="home-3d-page">
-  <div class="app-layout home3d-layout">
-    <aside class="sidebar home3d-sidebar" aria-label="주요 메뉴">
-      <div class="brand-block home3d-brand-block">
-        <a class="brand" href="index.html">오늘</a>
-        <p class="brand-school" id="sidebar_school">학교를 설정해 주세요</p>
+<body class="school-ui">
+  <div class="school-layout">
+    <aside class="school-sidebar" aria-label="주요 메뉴">
+      <div class="school-brand">
+        <a href="index.html">오늘</a>
+        <p id="sidebar_school">학교를 설정해 주세요</p>
       </div>
-
-      <nav class="side-nav home3d-nav">
-        <a class="active" href="index.html">오늘</a>
-        <a href="basic.html">시간표</a>
-        <a href="result.html">변경 내역</a>
-        <a href="settings.html">설정</a>
+      <nav class="school-nav">
+        <a class="active" href="index.html"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg><span>오늘</span></a>
+        <a href="basic.html"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9h16"/></svg><span>시간표</span></a>
+        <a href="result.html"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>변경 내역</span></a>
+        <a href="settings.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A8 8 0 0 0 15 6l-.3-2.6h-4L10.4 6A8 8 0 0 0 9 7.1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1A8 8 0 0 0 10.4 18l.3 2.6h4L15 18a8 8 0 0 0 1.5-1.1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z"/></svg><span>설정</span></a>
       </nav>
-
-      <div class="sidebar-status">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span>오늘 서비스 준비 중</span>
+      <div class="school-sidebar-footer">
+        <strong>SCHOOL DAY / TODAY</strong>
+        <span>좋은 하루가<br>좋은 내일을 만듭니다.</span>
       </div>
-      <p class="sidebar-caption">필요한 학교 정보를 한 화면에서.</p>
     </aside>
 
-    <main class="page-shell home3d-shell">
-      <section class="first-run-3d" id="first_run_onboarding" hidden aria-labelledby="onboarding-title">
-        <div class="first-run-copy">
-          <p class="home3d-overline">START WITH YOUR SCHOOL</p>
-          <h1 id="onboarding-title">먼저 학교를<br>설정해 주세요.</h1>
-          <p class="first-run-description">
-            학교와 학년, 반을 한 번만 설정하면 시간표, 이동 알림, 급식과 일정을 내 학급 기준으로 정리해 보여줍니다.
-          </p>
-          <div class="first-run-actions">
-            <a class="home3d-primary-button" href="settings.html">학교 설정 시작</a>
-            <span>설정은 언제든 변경할 수 있습니다.</span>
-          </div>
-          <div class="first-run-features" aria-label="설정 후 제공 기능">
-            <div><strong>01</strong><span>오늘 시간표와 변경사항</span></div>
-            <div><strong>02</strong><span>10분 전 · 3분 전 이동 알림</span></div>
-            <div><strong>03</strong><span>급식과 수행평가 일정</span></div>
-          </div>
-        </div>
-
-        <div class="first-run-visual" aria-hidden="true">
-          <canvas class="home3d-canvas" data-scene="onboarding"></canvas>
-          <div class="scene-label scene-label-top">7 PERIODS</div>
-          <div class="scene-label scene-label-bottom">YOUR DAY · ORGANIZED</div>
-        </div>
-      </section>
-
-      <div id="dashboard_content">
-        <header class="home3d-topbar">
-          <div>
-            <p class="home3d-overline" id="today_weekday">오늘</p>
-            <h1 id="today_date">오늘</h1>
-            <p id="school_information">학교와 학급을 설정해 주세요.</p>
-          </div>
-          <div class="topbar-actions">
-            <span class="topbar-live"><span class="status-dot" aria-hidden="true"></span>서울 기준</span>
-            <a href="settings.html">학교 설정</a>
-          </div>
+    <main class="school-main">
+      <div class="school-page">
+        <header class="school-topbar">
+          <span class="school-topbar-date" data-today-date>오늘</span>
+          <a class="school-profile" href="settings.html"><span class="school-profile-mark">교</span><span data-school-name>학교를 설정해 주세요</span><span data-class-label>학급 미설정</span></a>
         </header>
 
-        <section class="home3d-hero" aria-labelledby="next-class-title">
-          <div class="hero-copy">
-            <p class="hero-kicker">NEXT CLASS</p>
-            <div class="hero-title-row">
-              <h2 id="next-class-title">다음 수업을 확인하는 중입니다</h2>
-              <span class="hero-status" id="next-class-badge">대기</span>
-            </div>
-            <div class="hero-meta">
-              <span id="next-class-time">시간표를 설정해 주세요</span>
-              <span aria-hidden="true">/</span>
-              <span id="next-class-place">장소 정보 없음</span>
-            </div>
-            <p class="hero-note" id="next-class-note">시간표를 등록하면 다음 수업과 이동 알림 정보를 보여줍니다.</p>
-            <div class="hero-actions">
-              <a href="basic.html">시간표 관리</a>
-              <a href="settings.html">이동 알림 설정</a>
-            </div>
+        <section class="school-hero" id="first_run_onboarding" hidden aria-labelledby="onboarding-title">
+          <div class="school-hero-copy">
+            <p class="school-eyebrow">First setup</p>
+            <h1 id="onboarding-title">먼저 학교부터<br>설정해 주세요.</h1>
+            <p>학교와 학년, 반을 설정하면 오늘 시간표와 이동수업 알림, 급식과 일정을 내 학교 기준으로 정리할 수 있습니다.</p>
+            <div class="school-hero-line"></div>
+            <p class="school-hero-note"><a class="primary-button" href="settings.html" style="display:inline-flex;align-items:center;text-decoration:none;">학교 설정 시작</a></p>
           </div>
-
-          <div class="hero-scene" aria-hidden="true">
-            <canvas class="home3d-canvas" data-scene="dashboard"></canvas>
-            <div class="hero-scene-index">
-              <span>MON</span><span>TUE</span><span class="active">TODAY</span><span>THU</span><span>FRI</span>
-            </div>
+          <div class="school-hero-visual" aria-hidden="true">
+            <canvas class="school-3d-canvas" data-scene="onboarding"></canvas>
           </div>
         </section>
 
-        <section class="daily-snapshot" aria-label="오늘 요약">
-          <div class="snapshot-item">
-            <span class="snapshot-label">변경사항</span>
-            <strong id="snapshot_changes">연동 준비 중</strong>
-            <a href="result.html">확인하기</a>
-          </div>
-          <div class="snapshot-item">
-            <span class="snapshot-label">급식</span>
-            <strong>NEIS 연동 준비 중</strong>
-            <span>학교 기준 자동 조회</span>
-          </div>
-          <div class="snapshot-item">
-            <span class="snapshot-label">다가오는 일정</span>
-            <strong>일정 연동 준비 중</strong>
-            <span>수행평가 · 과제</span>
-          </div>
-        </section>
+        <div id="dashboard_content">
+          <section class="school-hero" aria-label="오늘 학교생활 안내">
+            <div class="school-hero-copy">
+              <p class="school-eyebrow">Your school day</p>
+              <h1>오늘,<br>학교가 더 가까워집니다.</h1>
+              <p>시간표, 급식, 변경사항과 일정을 한곳에서 확인하고 필요한 순간에 바로 움직일 수 있게 도와줍니다.</p>
+              <div class="school-hero-line"></div>
+              <p class="school-hero-note">작은 확인이 더 편한 학교생활을 만듭니다.</p>
+            </div>
+            <div class="school-hero-visual" aria-hidden="true">
+              <canvas class="school-3d-canvas" data-scene="home"></canvas>
+            </div>
+          </section>
 
-        <section class="home3d-content-grid">
-          <article class="home3d-timetable" aria-labelledby="timetable-title">
-            <div class="section-heading-line">
-              <div>
-                <p class="home3d-overline">TODAY</p>
-                <h2 id="timetable-title">오늘 시간표</h2>
-              </div>
-              <a href="basic.html">시간표 관리</a>
+          <section class="school-content school-home-grid">
+            <div class="school-stack">
+              <article class="school-card">
+                <div class="school-card-head"><h2>다음 수업</h2><a href="basic.html">시간표 관리</a></div>
+                <div class="next-class-body">
+                  <div class="next-class-badge-row"><span class="status-badge" id="next-class-badge">대기</span><span id="next-class-time">시간표를 설정해 주세요</span></div>
+                  <h3 id="next-class-title">다음 수업 확인 중</h3>
+                  <div class="next-class-meta"><span id="next-class-place">장소 정보 없음</span></div>
+                  <p class="next-class-note" id="next-class-note">시간표를 등록하면 다음 수업 정보를 보여줍니다.</p>
+                </div>
+              </article>
+
+              <article class="school-card">
+                <div class="school-card-head"><h3>변경사항</h3><a href="result.html">전체 보기</a></div>
+                <div id="changed_schedule_list" class="change-list" aria-live="polite"><div class="empty-row">변경사항을 확인하고 있습니다.</div></div>
+              </article>
             </div>
 
-            <div class="table-wrap home3d-table-wrap">
-              <table class="timetable-table home3d-table">
-                <thead>
-                  <tr>
-                    <th>교시</th>
-                    <th>시간</th>
-                    <th>과목</th>
-                    <th>상태</th>
-                  </tr>
-                </thead>
-                <tbody id="schedule_malloc"></tbody>
-              </table>
+            <article class="school-card">
+              <div class="school-card-head"><h2>오늘 시간표</h2><a href="basic.html">전체 시간표</a></div>
+              <div class="home-timetable-wrap">
+                <table class="home-timetable">
+                  <thead><tr><th>교시</th><th>과목</th><th>시간</th><th>장소</th><th>상태</th></tr></thead>
+                  <tbody id="schedule_malloc"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <div class="school-stack">
+              <article class="school-card">
+                <div class="school-card-head"><h3>오늘의 급식</h3><span class="muted-label" id="meal-date-label">오늘</span></div>
+                <div class="meal-content" id="meal-content"><p class="empty-state-title">급식 연동 준비 중</p><p class="empty-state-text">NEIS 급식 데이터를 연결하면 학교 기준으로 오늘 메뉴를 자동 표시합니다.</p></div>
+              </article>
+
+              <article class="school-card">
+                <div class="school-card-head"><h3>다가오는 일정</h3><a href="settings.html">연동 설정</a></div>
+                <div class="upcoming-list" id="upcoming-list"><div class="empty-row">수행평가와 과제 연동 준비 중입니다.</div></div>
+              </article>
             </div>
-          </article>
-
-          <aside class="home3d-rail">
-            <section class="rail-section" aria-labelledby="changes-title">
-              <div class="rail-heading">
-                <div>
-                  <p class="home3d-overline">CHANGES</p>
-                  <h2 id="changes-title">오늘 변경사항</h2>
-                </div>
-                <a href="result.html">전체 보기</a>
-              </div>
-              <div id="changed_schedule_list" class="change-list" aria-live="polite">
-                <div class="empty-row">변경사항을 확인하고 있습니다.</div>
-              </div>
-            </section>
-
-            <section class="rail-section" aria-labelledby="meal-title">
-              <div class="rail-heading">
-                <div>
-                  <p class="home3d-overline">MEAL</p>
-                  <h2 id="meal-title">오늘의 급식</h2>
-                </div>
-                <span class="muted-label" id="meal-date-label">오늘</span>
-              </div>
-              <div class="meal-content" id="meal-content">
-                <p class="empty-state-title">급식 연동 준비 중</p>
-                <p class="empty-state-text">NEIS 급식 데이터를 연결하면 오늘 메뉴를 자동으로 표시합니다.</p>
-              </div>
-            </section>
-
-            <section class="rail-section" aria-labelledby="upcoming-title">
-              <div class="rail-heading">
-                <div>
-                  <p class="home3d-overline">UPCOMING</p>
-                  <h2 id="upcoming-title">다가오는 일정</h2>
-                </div>
-              </div>
-              <div class="upcoming-list" id="upcoming-list">
-                <div class="empty-row">수행평가와 과제 연동 준비 중입니다.</div>
-              </div>
-            </section>
-
-            <section class="rail-section rail-notice" aria-labelledby="notice-title">
-              <div class="rail-heading">
-                <div>
-                  <p class="home3d-overline">NOTICE</p>
-                  <h2 id="notice-title">공지사항</h2>
-                </div>
-              </div>
-              <div class="notice-empty">
-                <p>등록된 공지가 없습니다.</p>
-                <span>교사 공지 기능이 연결되면 최신 공지가 표시됩니다.</span>
-              </div>
-            </section>
-          </aside>
-        </section>
+          </section>
+        </div>
       </div>
     </main>
   </div>
 
-  <nav class="mobile-nav" aria-label="모바일 주요 메뉴">
-    <a class="active" href="index.html">오늘</a>
-    <a href="basic.html">시간표</a>
-    <a href="result.html">변경</a>
-    <a href="settings.html">설정</a>
+  <nav class="school-mobile-nav" aria-label="모바일 주요 메뉴">
+    <a class="active" href="index.html">오늘</a><a href="basic.html">시간표</a><a href="result.html">변경</a><a href="settings.html">설정</a>
   </nav>
 </body>
 </html>
