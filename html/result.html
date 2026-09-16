@@ -3,113 +3,73 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0d1930">
+  <meta name="theme-color" content="#102644">
   <title>변경 내역 - 오늘</title>
   <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/pages.css">
+  <link rel="stylesheet" href="../css/school-ui.css">
   <script src="../js/main.js" defer></script>
-  <script type="module" src="../js/pages-3d.js"></script>
+  <script type="module" src="../js/school-3d.js"></script>
 </head>
-<body class="studio-page changes-workspace">
-  <div class="app-layout">
-    <aside class="studio-sidebar" aria-label="주요 메뉴">
-      <div class="brand-block">
-        <a class="brand" href="index.html">오늘</a>
-        <p class="brand-school" id="sidebar_school">학교를 설정해 주세요</p>
-      </div>
-      <nav class="studio-nav">
-        <a href="index.html">오늘</a>
-        <a href="basic.html">시간표</a>
-        <a class="active" href="result.html">변경 내역</a>
-        <a href="settings.html">설정</a>
+<body class="school-ui">
+  <div class="school-layout">
+    <aside class="school-sidebar" aria-label="주요 메뉴">
+      <div class="school-brand"><a href="index.html">오늘</a><p id="sidebar_school">학교를 설정해 주세요</p></div>
+      <nav class="school-nav">
+        <a href="index.html"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg><span>오늘</span></a>
+        <a href="basic.html"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9h16"/></svg><span>시간표</span></a>
+        <a class="active" href="result.html"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>변경 내역</span></a>
+        <a href="settings.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A8 8 0 0 0 15 6l-.3-2.6h-4L10.4 6A8 8 0 0 0 9 7.1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1A8 8 0 0 0 10.4 18l.3 2.6h4L15 18a8 8 0 0 0 1.5-1.1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z"/></svg><span>설정</span></a>
       </nav>
-      <div class="studio-sidebar-bottom">
-        <strong>CHANGE LOG</strong>
-        <span>바뀐 수업과 장소를<br>시간 순서대로 확인합니다.</span>
-      </div>
+      <div class="school-sidebar-footer"><strong>CHANGE LOG</strong><span>바뀐 수업과 장소를<br>한눈에 확인합니다.</span></div>
     </aside>
 
-    <main class="studio-shell">
-      <section class="workspace-hero">
-        <div class="workspace-copy">
-          <p class="workspace-eyebrow">Changes / Today</p>
-          <h1>오늘 바뀐 것을<br>놓치지 않게.</h1>
-          <p id="school_information">학교와 학급을 설정하면 오늘의 과목 변경과 장소 변경을 이 화면에서 모아볼 수 있습니다.</p>
-          <div class="workspace-meta">
-            <span>과목 변경</span>
-            <span>장소 변경</span>
-            <span>이동 알림 연동</span>
+    <main class="school-main">
+      <div class="school-page">
+        <header class="school-topbar"><span class="school-topbar-date" data-today-date>오늘</span><a class="school-profile" href="settings.html"><span class="school-profile-mark">교</span><span data-school-name>학교를 설정해 주세요</span><span data-class-label>학급 미설정</span></a></header>
+
+        <section class="school-hero">
+          <div class="school-hero-copy">
+            <p class="school-eyebrow">Changes / school notice</p>
+            <h1>학교의 변화를<br>가장 먼저 알려드립니다.</h1>
+            <p id="school_information">수업 변경, 교실 이동과 중요한 학교 안내를 한곳에서 확인할 수 있도록 준비하고 있습니다.</p>
+            <div class="school-hero-line"></div>
+            <p class="school-hero-note">변경 정보가 연결되면 최신 변경부터 자동으로 정리합니다.</p>
           </div>
-        </div>
-        <div class="workspace-scene" aria-hidden="true">
-          <canvas class="mini3d-canvas" data-scene="changes"></canvas>
-          <span class="scene-caption">CHANGE / TRACE / ALERT</span>
-        </div>
-      </section>
+          <div class="school-hero-visual" aria-hidden="true"><canvas class="school-3d-canvas" data-scene="changes"></canvas></div>
+        </section>
 
-      <section class="workspace-body">
-        <div class="change-summary-strip" aria-label="변경 요약">
-          <div class="change-summary-item"><span>TODAY CHANGES</span><strong>0건</strong></div>
-          <div class="change-summary-item"><span>MOVE REQUIRED</span><strong>0건</strong></div>
-          <div class="change-summary-item"><span>ALERT DEFAULT</span><strong>10분 · 3분</strong></div>
+        <div class="school-section-title">
+          <div><p class="school-eyebrow">Changes</p><h2>변경 내역</h2></div>
+          <div class="filter-pills" aria-label="변경 유형"><span class="filter-pill active">전체</span><span class="filter-pill">수업 변경</span><span class="filter-pill">교실 변경</span><span class="filter-pill">학교 안내</span></div>
         </div>
 
-        <div class="change-log-grid">
-          <section>
-            <div class="workspace-section-heading">
-              <div>
-                <p class="section-index">Timeline</p>
-                <h2>오늘의 변경 기록</h2>
+        <section class="change-layout">
+          <article class="school-card">
+            <div class="school-card-head"><h2>오늘의 변경 기록</h2><span class="muted-label" data-today-date>오늘</span></div>
+            <div class="change-empty">
+              <div><strong>현재 연결된 변경사항이 없습니다.</strong><p>학교 시간표 데이터와 교사 공지 기능이 연결되면 과목 변경, 장소 변경, 변경 시각과 대상을 이곳에 실제 데이터로 표시합니다.</p></div>
+            </div>
+          </article>
+
+          <aside class="school-stack">
+            <section class="school-card">
+              <div class="school-card-head"><h3>이동 알림 기준</h3><a href="settings.html">설정하기</a></div>
+              <div class="alert-check-list">
+                <div class="alert-check">수업 과목이나 교시가 변경된 경우</div>
+                <div class="alert-check">현재 장소와 다음 수업 장소가 다른 경우</div>
+                <div class="alert-check">중요 공지나 특별 일정이 등록된 경우</div>
               </div>
-              <p>최신 변경부터 표시합니다.</p>
-            </div>
-
-            <div class="change-timeline">
-              <article class="change-timeline-item">
-                <time>현재 상태</time>
-                <div>
-                  <strong>확인 가능한 변경사항이 없습니다.</strong>
-                  <p>학교 시간표 데이터가 연결되면 과목 변경, 장소 변경, 변경 시각을 이곳에 자동으로 기록합니다.</p>
-                </div>
-              </article>
-              <article class="change-timeline-item">
-                <time>연동 예정</time>
-                <div>
-                  <strong>변경 전·후 비교</strong>
-                  <p>예: 4교시 영어 → 수학, 체육관 → 운동장처럼 기존 정보와 변경된 정보를 나란히 보여줍니다.</p>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          <aside class="change-side-note">
-            <section>
-              <p class="section-index">Movement Alert</p>
-              <h3>이동수업 알림</h3>
-              <p>현재 수업 장소와 다음 수업 장소가 다를 때만 알림을 보냅니다.</p>
-              <a href="settings.html">알림 시간 설정</a>
             </section>
-            <section>
-              <p class="section-index">Default</p>
-              <h3>기본 알림 시점</h3>
-              <p>수업 시작 10분 전과 3분 전. 사용자가 직접 각각 변경하거나 끌 수 있습니다.</p>
-            </section>
-            <section>
-              <p class="section-index">History</p>
-              <h3>변경 이력 보관</h3>
-              <p>서버 연동 후에는 잘못된 변경을 되돌릴 수 있도록 수정 이력과 이전 값을 함께 저장합니다.</p>
+            <section class="school-card">
+              <div class="school-card-head"><h3>기본 알림</h3></div>
+              <div class="meal-content"><p class="empty-state-title">10분 전 · 3분 전</p><p class="empty-state-text">이동수업 기본 알림 시점입니다. 설정에서 각각 변경하거나 끌 수 있습니다.</p></div>
             </section>
           </aside>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   </div>
 
-  <nav class="mobile-nav" aria-label="모바일 주요 메뉴">
-    <a href="index.html">오늘</a>
-    <a href="basic.html">시간표</a>
-    <a class="active" href="result.html">변경</a>
-    <a href="settings.html">설정</a>
-  </nav>
+  <nav class="school-mobile-nav" aria-label="모바일 주요 메뉴"><a href="index.html">오늘</a><a href="basic.html">시간표</a><a class="active" href="result.html">변경</a><a href="settings.html">설정</a></nav>
 </body>
 </html>
