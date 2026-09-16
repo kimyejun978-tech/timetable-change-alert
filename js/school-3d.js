@@ -1,27 +1,29 @@
-const canvases = Array.from(document.querySelectorAll('.school-3d-canvas'));
-if (canvases.length) bootSchoolScenes();
+const sceneCanvases = Array.from(document.querySelectorAll('.school-3d-canvas'));
+if (sceneCanvases.length) bootSchool3D();
 
-async function bootSchoolScenes() {
-  let THREE;
+async function bootSchool3D() {
   try {
-    THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm');
+    const [THREE, roundedModule] = await Promise.all([
+      import('https://cdn.jsdelivr.net/npm/three@0.180.0/+esm'),
+      import('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/geometries/RoundedBoxGeometry.js/+esm'),
+    ]);
+    sceneCanvases.forEach((canvas) => createScene(THREE, roundedModule.RoundedBoxGeometry, canvas));
   } catch (error) {
+    console.error('3D scene load failed', error);
     document.documentElement.classList.add('school-3d-failed');
-    return;
   }
-
-  canvases.forEach((canvas) => createSchoolScene(THREE, canvas));
 }
 
-function makeTextTexture(THREE, width, height, draw) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  draw(ctx, width, height);
-  const texture = new THREE.CanvasTexture(canvas);
+function makeCanvasTexture(THREE, width, height, painter) {
+  const c = document.createElement('canvas');
+  c.width = width;
+  c.height = height;
+  const ctx = c.getContext('2d');
+  painter(ctx, width, height);
+  const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
+  texture.anisotropy = 8;
+  texture.needsUpdate = true;
   return texture;
 }
 
@@ -36,305 +38,321 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function createSchoolScene(THREE, canvas) {
-  const type = canvas.dataset.scene || 'home';
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setClearColor(0x000000, 0);
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-  camera.position.set(0, 0.2, 8.5);
-
-  const root = new THREE.Group();
-  scene.add(root);
-
-  scene.add(new THREE.HemisphereLight(0xf4f8ff, 0x6d7b8e, 2.2));
-  const key = new THREE.DirectionalLight(0xffffff, 3.4);
-  key.position.set(4, 6, 8);
-  scene.add(key);
-  const rim = new THREE.PointLight(0x79a8ef, 7, 18);
-  rim.position.set(-4, 2, 5);
-  scene.add(rim);
-
-  if (type === 'home' || type === 'onboarding') buildHomeBoard(THREE, root, type === 'onboarding');
-  if (type === 'schedule') buildScheduleDesk(THREE, root);
-  if (type === 'changes') buildChangesBoard(THREE, root);
-  if (type === 'settings') buildSettingsId(THREE, root);
-
-  const host = canvas.parentElement;
-  const pointer = { x: 0, y: 0 };
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  if (host) {
-    host.addEventListener('pointermove', (event) => {
-      const rect = host.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      pointer.x = ((event.clientX - rect.left) / rect.width - .5) * 2;
-      pointer.y = ((event.clientY - rect.top) / rect.height - .5) * 2;
-    }, { passive: true });
-    host.addEventListener('pointerleave', () => { pointer.x = 0; pointer.y = 0; }, { passive: true });
-  }
-
-  function resize() {
-    const rect = canvas.getBoundingClientRect();
-    const w = Math.max(1, rect.width);
-    const h = Math.max(1, rect.height);
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    camera.position.z = w < 500 ? 9.6 : 8.5;
-  }
-
-  const ro = new ResizeObserver(resize);
-  ro.observe(canvas);
-  resize();
-
-  let frame = 0;
-  let last = performance.now();
-  function animate(now) {
-    const dt = Math.min((now - last) / 1000, .05);
-    last = now;
-    if (!reduced) {
-      root.rotation.y += ((pointer.x * .08) - root.rotation.y) * .04;
-      root.rotation.x += ((pointer.y * -.045) - root.rotation.x) * .04;
-      root.position.y = Math.sin(now * .00055) * .025;
-      root.children.forEach((child, index) => {
-        if (child.userData.floatBase !== undefined) {
-          child.position.y = child.userData.floatBase + Math.sin(now * .0008 + index * .65) * .025;
-        }
-      });
-    }
-    renderer.render(scene, camera);
-    frame = requestAnimationFrame(animate);
-  }
-  frame = requestAnimationFrame(animate);
-
-  window.addEventListener('pagehide', () => {
-    cancelAnimationFrame(frame);
-    ro.disconnect();
-    renderer.dispose();
-  }, { once: true });
+function material(THREE, color, roughness = .48, metalness = .05) {
+  return new THREE.MeshStandardMaterial({ color, roughness, metalness });
 }
 
-function buildHomeBoard(THREE, group, onboarding) {
+function roundedMesh(THREE, RoundedBoxGeometry, size, radius, mat) {
+  const geo = new RoundedBoxGeometry(size[0], size[1], size[2], 6, radius);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function addClassroomBackdrop(THREE, RoundedBoxGeometry, group) {
+  const wallMat = material(THREE, 0xeaf1f6, .92, 0);
+  const floorMat = material(THREE, 0xcaa982, .68, .02);
+  const metalMat = material(THREE, 0x7f93a8, .34, .38);
+  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xd7ecff, roughness: .08, metalness: 0, transmission: .5, transparent: true, opacity: .38, thickness: .08 });
+
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(18, 9), wallMat);
+  wall.position.set(0, 1.1, -3.7);
+  wall.receiveShadow = true;
+  group.add(wall);
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(18, 10), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, -2.05, 0);
+  floor.receiveShadow = true;
+  group.add(floor);
+
+  const windowGroup = new THREE.Group();
+  for (let i = 0; i < 3; i++) {
+    const glass = roundedMesh(THREE, RoundedBoxGeometry, [1.65, 3.15, .08], .03, glassMat.clone());
+    glass.position.set(-4.8 + i * 1.85, .35, -3.52);
+    glass.castShadow = false;
+    windowGroup.add(glass);
+    const mullion = roundedMesh(THREE, RoundedBoxGeometry, [.075, 3.35, .12], .02, metalMat);
+    mullion.position.set(-3.92 + i * 1.85, .35, -3.42);
+    windowGroup.add(mullion);
+  }
+  group.add(windowGroup);
+
+  const sunPanel = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 3.4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .26 }));
+  sunPanel.position.set(-3.0, .45, -3.34);
+  group.add(sunPanel);
+
+  for (let i = 0; i < 2; i++) {
+    const deskTop = roundedMesh(THREE, RoundedBoxGeometry, [2.25, .16, 1.0], .06, material(THREE, 0xb88d62, .56, .02));
+    deskTop.position.set(-3.3 + i * 2.7, -1.45, -1.7 - i * .35);
+    deskTop.rotation.y = .05;
+    group.add(deskTop);
+  }
+}
+
+function createBook(THREE, RoundedBoxGeometry, title, color, x, y, z, rot = 0) {
+  const g = new THREE.Group();
+  const page = roundedMesh(THREE, RoundedBoxGeometry, [2.55, .36, 1.48], .06, material(THREE, 0xf3eee5, .78, 0));
+  page.position.y = 0;
+  g.add(page);
+  const coverMat = material(THREE, color, .38, .06);
+  const top = roundedMesh(THREE, RoundedBoxGeometry, [2.67, .065, 1.55], .035, coverMat);
+  top.position.y = .215;
+  const bottom = top.clone();
+  bottom.position.y = -.215;
+  g.add(top, bottom);
+  const spine = roundedMesh(THREE, RoundedBoxGeometry, [.095, .44, 1.54], .025, coverMat);
+  spine.position.x = -1.31;
+  g.add(spine);
+
+  const labelTexture = makeCanvasTexture(THREE, 640, 150, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = .92;
+    ctx.font = '700 58px Pretendard, sans-serif';
+    ctx.fillText(title, 28, 92);
+    ctx.globalAlpha = .38;
+    ctx.font = '600 22px Pretendard, sans-serif';
+    ctx.fillText('TODAY SCHOOL', 410, 92);
+  });
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(2.18, .44), new THREE.MeshBasicMaterial({ map: labelTexture, transparent: true }));
+  label.position.set(.14, .002, .781);
+  label.rotation.x = Math.PI / 2;
+  g.add(label);
+
+  g.position.set(x, y, z);
+  g.rotation.y = rot;
+  return g;
+}
+
+function createPlant(THREE, RoundedBoxGeometry, x, y, z, scale = 1) {
+  const g = new THREE.Group();
+  const pot = roundedMesh(THREE, RoundedBoxGeometry, [.72, .64, .72], .12, material(THREE, 0xe8e2d7, .82, 0));
+  pot.position.y = .03;
+  g.add(pot);
+  const leafMat = material(THREE, 0x4c8b64, .72, 0);
+  for (let i = 0; i < 7; i++) {
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(.32, 20, 12), leafMat);
+    leaf.scale.set(.42, 1.25, .22);
+    leaf.position.set(Math.sin(i * .9) * .28, .62 + Math.cos(i * .62) * .12, Math.cos(i * .7) * .12);
+    leaf.rotation.z = (i - 3) * .29;
+    leaf.castShadow = true;
+    g.add(leaf);
+  }
+  g.position.set(x, y, z);
+  g.scale.setScalar(scale);
+  return g;
+}
+
+function buildHomeScene(THREE, RoundedBoxGeometry, root, onboarding) {
+  addClassroomBackdrop(THREE, RoundedBoxGeometry, root);
   const schoolName = localStorage.getItem('schoolName') || '오늘 학교';
   const grade = localStorage.getItem('schoolGrade');
   const klass = localStorage.getItem('schoolClass');
-  const classText = grade && klass ? `${grade}학년 ${klass}반` : '학교를 설정해 주세요';
+  const classLabel = grade && klass ? `${grade}학년 ${klass}반` : '학교 설정 전';
 
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x18314e, metalness: .55, roughness: .28 });
-  const sideMat = new THREE.MeshStandardMaterial({ color: 0xb8c5d4, metalness: .12, roughness: .5 });
-  const deskMat = new THREE.MeshStandardMaterial({ color: 0x8a694b, roughness: .72 });
-  const plantMat = new THREE.MeshStandardMaterial({ color: 0x5a8d68, roughness: .72 });
+  const boardFrame = roundedMesh(THREE, RoundedBoxGeometry, [4.9, 2.88, .23], .12, material(THREE, 0x1a2738, .28, .58));
+  boardFrame.position.set(1.7, .2, -.1);
+  boardFrame.rotation.y = -.12;
+  root.add(boardFrame);
 
-  const board = new THREE.Mesh(new THREE.BoxGeometry(4.5, 2.55, .18), frameMat);
-  board.position.set(.85, .32, 0);
-  board.rotation.y = -.08;
-  board.userData.floatBase = board.position.y;
-  group.add(board);
-
-  const texture = makeTextTexture(THREE, 1024, 580, (ctx, w, h) => {
+  const boardTex = makeCanvasTexture(THREE, 1400, 820, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, '#17344f');
-    g.addColorStop(1, '#0e2c3d');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = 'rgba(255,255,255,.15)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(34, 34, w - 68, h - 68);
-    ctx.fillStyle = '#dbe7ef';
-    ctx.font = '700 44px sans-serif';
-    ctx.fillText(schoolName.slice(0, 15), 72, 105);
-    ctx.fillStyle = 'rgba(219,231,239,.67)';
-    ctx.font = '500 25px sans-serif';
-    ctx.fillText(classText, 72, 148);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 48px sans-serif';
-    ctx.fillText(onboarding ? '학교부터 설정해 볼까요?' : '오늘도 좋은 하루 보내세요.', 72, 270);
-    ctx.fillStyle = '#b9cbd5';
-    ctx.font = '500 27px sans-serif';
-    ctx.fillText('시간표 · 급식 · 변경사항을 한곳에서', 72, 322);
-    ctx.fillStyle = '#91b9c8';
-    ctx.font = '600 24px sans-serif';
-    ctx.fillText('작은 확인이 더 편한 학교생활을 만듭니다.', 72, 438);
+    g.addColorStop(0, '#173d65');
+    g.addColorStop(.55, '#123657');
+    g.addColorStop(1, '#0e2c45');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(255,255,255,.09)'; ctx.fillRect(0, 150, w, 2);
+    ctx.fillStyle = '#e6f1fa'; ctx.font = '800 58px Pretendard, sans-serif'; ctx.fillText(schoolName.slice(0, 14), 70, 100);
+    ctx.fillStyle = '#8cb5d8'; ctx.font = '700 26px Pretendard, sans-serif'; ctx.fillText(classLabel, 1080, 98);
+    ctx.fillStyle = '#ffffff'; ctx.font = '800 60px Pretendard, sans-serif'; ctx.fillText(onboarding ? '내 학교를 먼저 설정해 주세요.' : '함께 만드는 더 좋은 학교', 78, 280);
+    ctx.fillStyle = '#c6d9e8'; ctx.font = '500 34px Pretendard, sans-serif'; ctx.fillText('시간표 · 급식 · 변경사항 · 학교 일정', 78, 340);
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; roundedRect(ctx, 72, 420, 1256, 220, 18); ctx.fill();
+    ctx.fillStyle = '#d9e7f1'; ctx.font = '700 32px Pretendard, sans-serif'; ctx.fillText('오늘의 안내', 108, 480);
+    ctx.font = '500 28px Pretendard, sans-serif'; ctx.fillText('작은 확인이 더 편한 학교생활을 만듭니다.', 108, 535);
+    ctx.fillStyle = '#7fb7dd'; ctx.font = '700 24px Pretendard, sans-serif'; ctx.fillText('TODAY · SCHOOL DAY', 108, 600);
   });
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(4.55, 2.55), new THREE.MeshBasicMaterial({ map: boardTex }));
+  screen.position.set(1.7, .2, .025);
+  screen.rotation.y = -.12;
+  root.add(screen);
 
-  const screenMat = new THREE.MeshBasicMaterial({ map: texture });
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(4.12, 2.25), screenMat);
-  screen.position.set(.85, .32, .105);
-  screen.rotation.y = -.08;
-  screen.userData.floatBase = screen.position.y;
-  group.add(screen);
-
-  for (let i = 0; i < 4; i++) {
-    const column = new THREE.Mesh(new THREE.BoxGeometry(.17, 3.7, .22), sideMat);
-    column.position.set(-3.25 + i * .62, .2, -1.0 - i * .05);
-    column.rotation.y = .1;
-    group.add(column);
-  }
-
-  const bench = new THREE.Mesh(new THREE.BoxGeometry(2.5, .18, 1.05), deskMat);
-  bench.position.set(-2.1, -1.65, -.55);
-  bench.rotation.y = .17;
-  group.add(bench);
-
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(.25, .31, .45, 24), new THREE.MeshStandardMaterial({ color: 0xc7c1b4, roughness: .7 }));
-  pot.position.set(3.35, -1.25, .2);
-  group.add(pot);
-  for (let i = 0; i < 6; i++) {
-    const leaf = new THREE.Mesh(new THREE.SphereGeometry(.22, 16, 10), plantMat);
-    leaf.scale.set(.55, 1.8, .35);
-    leaf.rotation.z = (i - 2.5) * .42;
-    leaf.position.set(3.35 + Math.sin(i) * .22, -.78 + Math.cos(i * .7) * .16, .2);
-    group.add(leaf);
-  }
-
-  group.rotation.set(-.03, -.06, 0);
-  group.position.set(.15, .05, 0);
+  const shelf = roundedMesh(THREE, RoundedBoxGeometry, [3.1, .17, 1.25], .06, material(THREE, 0xa37854, .62, .03));
+  shelf.position.set(-1.65, -1.64, -.2);
+  shelf.rotation.y = .11;
+  root.add(shelf);
+  root.add(createBook(THREE, RoundedBoxGeometry, '수학 I', 0x315888, -1.5, -1.24, -.1, .09));
+  root.add(createBook(THREE, RoundedBoxGeometry, '영어 I', 0x173a61, -1.4, -.82, -.12, .07));
+  root.add(createBook(THREE, RoundedBoxGeometry, '통합과학', 0x446554, -1.28, -.4, -.14, .04));
+  root.add(createPlant(THREE, RoundedBoxGeometry, 4.15, -1.42, -.2, .78));
 }
 
-function buildScheduleDesk(THREE, group) {
-  const bookColors = [0x173a66, 0x315988, 0xd8d0bd];
-  const bookY = [-1.15, -.72, -.29];
-  bookY.forEach((y, i) => {
-    const book = new THREE.Mesh(new THREE.BoxGeometry(2.8, .34, 1.55), new THREE.MeshStandardMaterial({ color: bookColors[i], roughness: .48 }));
-    book.position.set(-1.15 + i * .12, y, -.2 - i * .04);
-    book.rotation.y = -.16 + i * .035;
-    group.add(book);
+function buildScheduleScene(THREE, RoundedBoxGeometry, root) {
+  addClassroomBackdrop(THREE, RoundedBoxGeometry, root);
+  root.add(createBook(THREE, RoundedBoxGeometry, '수학 I', 0x375f91, -2.25, -1.28, .1, .12));
+  root.add(createBook(THREE, RoundedBoxGeometry, '영어 I', 0x173a60, -2.12, -.85, .08, .08));
+  root.add(createBook(THREE, RoundedBoxGeometry, '통합과학', 0x5f6655, -1.98, -.42, .04, .05));
+  root.add(createBook(THREE, RoundedBoxGeometry, '한국사', 0x345e51, -1.85, .01, 0, .02));
+
+  const stand = new THREE.Group();
+  const back = roundedMesh(THREE, RoundedBoxGeometry, [3.55, 2.85, .15], .08, material(THREE, 0x344864, .45, .16));
+  back.rotation.x = -.13;
+  stand.add(back);
+  const paper = roundedMesh(THREE, RoundedBoxGeometry, [3.35, 2.56, .055], .055, material(THREE, 0xf9f6ed, .88, 0));
+  paper.position.z = .112;
+  paper.rotation.x = -.13;
+  stand.add(paper);
+
+  const timetableTex = makeCanvasTexture(THREE, 1180, 900, (ctx, w, h) => {
+    ctx.fillStyle = '#faf7ee'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#174f89'; ctx.font = '800 58px Pretendard, sans-serif'; ctx.fillText('오늘의 시간표', 70, 96);
+    const cols = ['MON','TUE','WED','THU','FRI'];
+    ctx.font = '700 24px Pretendard, sans-serif'; ctx.fillStyle = '#55708e';
+    cols.forEach((d, i) => ctx.fillText(d, 250 + i * 170, 160));
+    ctx.strokeStyle = '#d9d9d2'; ctx.lineWidth = 2;
+    for (let x = 210; x <= 1080; x += 170) { ctx.beginPath(); ctx.moveTo(x, 175); ctx.lineTo(x, 760); ctx.stroke(); }
+    for (let y = 175; y <= 760; y += 82) { ctx.beginPath(); ctx.moveTo(80, y); ctx.lineTo(1080, y); ctx.stroke(); }
+    ctx.fillStyle = '#61738a'; ctx.font = '700 22px Pretendard, sans-serif';
+    for (let i = 0; i < 7; i++) ctx.fillText(`${i+1}교시`, 98, 225 + i * 82);
+    const items = [['수학 I',2,0],['영어 I',2,1],['통합과학',2,2],['한국사',2,3],['체육',2,4]];
+    items.forEach((item, idx) => {
+      const x = 225 + item[1] * 170, y = 190 + item[2] * 82;
+      const colors = ['#dcecff','#e5f3e7','#f8eadc','#e9e2f5','#f9e2e8'];
+      ctx.fillStyle = colors[idx]; roundedRect(ctx, x, y, 142, 58, 11); ctx.fill();
+      ctx.fillStyle = '#284b70'; ctx.font = '700 22px Pretendard, sans-serif'; ctx.fillText(item[0], x + 18, y + 37);
+    });
+    ctx.fillStyle = '#2f72d8'; ctx.font = '700 28px Pretendard, sans-serif'; ctx.fillText('좋은 배움이 더 좋은 내일을 만듭니다.', 72, 840);
   });
+  const print = new THREE.Mesh(new THREE.PlaneGeometry(3.22, 2.42), new THREE.MeshBasicMaterial({ map: timetableTex }));
+  print.position.set(0, .03, .15);
+  print.rotation.x = -.13;
+  stand.add(print);
 
-  const planner = new THREE.Mesh(new THREE.BoxGeometry(2.65, 2.15, .12), new THREE.MeshStandardMaterial({ color: 0xf4f1e8, roughness: .78 }));
-  planner.position.set(1.15, .65, .2);
-  planner.rotation.set(-.18, -.1, .06);
-  planner.userData.floatBase = planner.position.y;
-  group.add(planner);
-
-  const texture = makeTextTexture(THREE, 720, 560, (ctx, w, h) => {
-    ctx.fillStyle = '#f7f4ec'; ctx.fillRect(0,0,w,h);
-    ctx.strokeStyle = '#d5d3ca'; ctx.lineWidth = 2;
-    for (let x = 52; x < w; x += 82) { ctx.beginPath(); ctx.moveTo(x, 120); ctx.lineTo(x, h - 42); ctx.stroke(); }
-    for (let y = 120; y < h; y += 62) { ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(w - 40, y); ctx.stroke(); }
-    ctx.fillStyle = '#315b91'; ctx.font = '700 38px sans-serif'; ctx.fillText('WEEKLY TIMETABLE', 54, 72);
-    ['MON','TUE','WED','THU','FRI'].forEach((d,i) => { ctx.font='600 20px sans-serif'; ctx.fillText(d, 75 + i*112, 108); });
-    ctx.fillStyle = '#173a66'; ctx.font = '600 22px sans-serif'; ctx.fillText('오늘의 수업을 차분하게 정리해요.', 54, 520);
-  });
-  const paper = new THREE.Mesh(new THREE.PlaneGeometry(2.45, 1.94), new THREE.MeshBasicMaterial({ map: texture }));
-  paper.position.set(1.15, .65, .267);
-  paper.rotation.copy(planner.rotation);
-  paper.userData.floatBase = paper.position.y;
-  group.add(paper);
-
-  const clip = new THREE.Mesh(new THREE.BoxGeometry(.75, .22, .18), new THREE.MeshStandardMaterial({ color: 0x5177b3, metalness: .45, roughness: .3 }));
-  clip.position.set(1.05, 1.78, .36);
-  clip.rotation.copy(planner.rotation);
-  group.add(clip);
-
-  const cup = new THREE.Mesh(new THREE.CylinderGeometry(.3, .34, 1.0, 30), new THREE.MeshStandardMaterial({ color: 0xf2efe7, roughness: .68 }));
-  cup.position.set(3.25, -.35, -.15);
-  group.add(cup);
-  const penMat = new THREE.MeshStandardMaterial({ color: 0x2d5a8c, metalness: .2, roughness: .36 });
-  for (let i = 0; i < 4; i++) {
-    const pen = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 1.38, 12), penMat);
-    pen.position.set(3.08 + i*.13, .55 + Math.sin(i)*.08, -.12);
-    pen.rotation.z = (i - 1.5) * .08;
-    group.add(pen);
+  for (let i = 0; i < 13; i++) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.115, .025, 12, 28), material(THREE, 0xa1774c, .25, .65));
+    ring.position.set(-1.48 + i * .245, 1.48, .08);
+    ring.rotation.x = Math.PI / 2;
+    stand.add(ring);
   }
+  stand.position.set(1.65, .2, .05);
+  stand.rotation.y = -.13;
+  root.add(stand);
 
-  group.rotation.set(-.16, -.22, .02);
-  group.position.set(.3, .15, 0);
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(.34, .37, 1.05, 32), material(THREE, 0xf0ede6, .72, 0));
+  cup.position.set(4.05, -1.13, .15); cup.castShadow = true; root.add(cup);
+  const penColors=[0x244f82,0xdd6f6f,0x4d8a70,0xe2a54f];
+  penColors.forEach((c,i)=>{const pen=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,1.45,14),material(THREE,c,.32,.12));pen.position.set(3.87+i*.12,-.25+Math.sin(i)*.06,.15);pen.rotation.z=(i-1.5)*.08;pen.castShadow=true;root.add(pen)});
 }
 
-function buildChangesBoard(THREE, group) {
-  const cork = new THREE.Mesh(new THREE.BoxGeometry(4.5, 2.8, .18), new THREE.MeshStandardMaterial({ color: 0x9b7655, roughness: .92 }));
-  cork.position.set(.45, .25, -.2);
-  cork.rotation.y = -.06;
-  cork.userData.floatBase = cork.position.y;
-  group.add(cork);
-
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x46586c, metalness: .55, roughness: .32 });
-  const top = new THREE.Mesh(new THREE.BoxGeometry(4.75, .12, .28), frameMat); top.position.set(.45, 1.68, -.12); group.add(top);
-  const bottom = top.clone(); bottom.position.y = -1.18; group.add(bottom);
-  const side1 = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.95, .28), frameMat); side1.position.set(-1.96, .25, -.12); group.add(side1);
-  const side2 = side1.clone(); side2.position.x = 2.86; group.add(side2);
+function buildChangesScene(THREE, RoundedBoxGeometry, root) {
+  addClassroomBackdrop(THREE, RoundedBoxGeometry, root);
+  const frame = roundedMesh(THREE, RoundedBoxGeometry, [5.0, 3.15, .22], .08, material(THREE, 0x7b593c, .55, .06));
+  frame.position.set(1.35, .18, -.1);
+  frame.rotation.y = -.09;
+  root.add(frame);
+  const cork = roundedMesh(THREE, RoundedBoxGeometry, [4.72, 2.88, .12], .06, material(THREE, 0xa77b53, .94, 0));
+  cork.position.set(1.35, .18, .05); cork.rotation.y = -.09; root.add(cork);
 
   const notes = [
-    { x: -1.0, y: .62, color: '#f6f5ef', title: '수업 변경', line: '3교시 변경 안내' },
-    { x: .72, y: .72, color: '#f5e6a8', title: '교실 이동', line: '다음 수업 장소 확인' },
-    { x: .15, y: -.62, color: '#e8eef7', title: '학교 안내', line: '중요 공지는 한눈에' },
+    {x:-.2,y:.76,w:1.65,h:1.08,bg:'#fae6e8',title:'수업 변경 안내',body:'3교시 수학 I\n→ 확률과 통계'},
+    {x:1.65,y:.72,w:1.65,h:1.08,bg:'#e6f1fb',title:'교실 이동 안내',body:'2교시 영어\n1-1 → 2-3'},
+    {x:-.12,y:-.62,w:1.65,h:1.0,bg:'#f6ead0',title:'강사 변경',body:'5교시 한국사\n담당 교사 변경'},
+    {x:1.72,y:-.66,w:1.65,h:1.0,bg:'#e4f1e6',title:'시간표 조정',body:'6교시 창체\n동아리 활동'},
   ];
-  notes.forEach((n, index) => {
-    const tex = makeTextTexture(THREE, 420, 310, (ctx,w,h) => {
-      ctx.fillStyle = n.color; ctx.fillRect(0,0,w,h);
-      ctx.fillStyle = '#26394f'; ctx.font = '700 34px sans-serif'; ctx.fillText(n.title, 36, 75);
-      ctx.fillStyle = '#67798c'; ctx.font = '500 24px sans-serif'; ctx.fillText(n.line, 36, 128);
-      ctx.fillStyle = '#8da0b5'; ctx.font = '500 18px sans-serif'; ctx.fillText('오늘 · 알림판', 36, 252);
+  notes.forEach((n, idx) => {
+    const tex = makeCanvasTexture(THREE, 700, 460, (ctx,w,h)=>{
+      ctx.fillStyle=n.bg;ctx.fillRect(0,0,w,h);
+      ctx.fillStyle='#284260';ctx.font='800 42px Pretendard, sans-serif';ctx.fillText(n.title,42,85);
+      ctx.fillStyle='#4e6177';ctx.font='600 34px Pretendard, sans-serif';
+      n.body.split('\n').forEach((line,i)=>ctx.fillText(line,42,170+i*58));
+      ctx.fillStyle='rgba(30,65,100,.35)';ctx.font='600 22px Pretendard, sans-serif';ctx.fillText('TODAY SCHOOL NOTICE',42,h-42);
     });
-    const note = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 1.15), new THREE.MeshBasicMaterial({ map: tex }));
-    note.position.set(n.x + .45, n.y + .25, .02);
-    note.rotation.z = (index - 1) * .035;
-    note.userData.floatBase = note.position.y;
-    group.add(note);
-    const pin = new THREE.Mesh(new THREE.SphereGeometry(.07, 14, 14), new THREE.MeshStandardMaterial({ color: index === 1 ? 0xc85656 : 0x3d72c1, metalness: .4, roughness: .28 }));
-    pin.position.set(note.position.x, note.position.y + .53, .08);
-    group.add(pin);
+    const note = roundedMesh(THREE, RoundedBoxGeometry,[n.w,n.h,.055],.035,material(THREE,0xffffff,.85,0));
+    note.position.set(n.x,n.y,.16);note.rotation.set(0,-.09,(idx%2?-.02:.025));root.add(note);
+    const print = new THREE.Mesh(new THREE.PlaneGeometry(n.w*.95,n.h*.9),new THREE.MeshBasicMaterial({map:tex}));
+    print.position.set(n.x,n.y,.196);print.rotation.set(0,-.09,(idx%2?-.02:.025));root.add(print);
+    const pin = new THREE.Mesh(new THREE.SphereGeometry(.065,20,16),material(THREE,[0xd54e50,0x2e77b5,0xd49a30,0x4a8a68][idx],.25,.25));
+    pin.position.set(n.x,n.y+n.h*.41,.25);pin.castShadow=true;root.add(pin);
   });
-  group.rotation.set(-.03, -.08, 0);
-  group.position.set(.15, .02, 0);
+  root.add(createBook(THREE,RoundedBoxGeometry,'오늘, 더 특별한 나',0x2e557f,-2.15,-1.42,.25,.08));
+  root.add(createBook(THREE,RoundedBoxGeometry,'더 넓은 세상',0xd9d3c8,-2.02,-1.0,.22,.05));
 }
 
-function buildSettingsId(THREE, group) {
+function buildSettingsScene(THREE, RoundedBoxGeometry, root) {
+  addClassroomBackdrop(THREE, RoundedBoxGeometry, root);
+  root.add(createBook(THREE, RoundedBoxGeometry, '수학 I', 0x315b8c, -1.9, -.78, -.15, .08));
+  root.add(createBook(THREE, RoundedBoxGeometry, '영어 I', 0x1f4166, -1.78, -.35, -.17, .05));
+  root.add(createBook(THREE, RoundedBoxGeometry, '통합과학', 0x52645b, -1.65, .08, -.2, .02));
+
+  const idGroup = new THREE.Group();
+  const holder = roundedMesh(THREE, RoundedBoxGeometry, [3.1, 2.05, .14], .13, new THREE.MeshPhysicalMaterial({color:0xeef6ff,roughness:.12,metalness:0,transmission:.18,transparent:true,opacity:.93,clearcoat:1,clearcoatRoughness:.08}));
+  holder.castShadow=true; idGroup.add(holder);
   const schoolName = localStorage.getItem('schoolName') || '오늘 학교';
   const grade = localStorage.getItem('schoolGrade') || '-';
   const klass = localStorage.getItem('schoolClass') || '-';
+  const idTex = makeCanvasTexture(THREE, 1100, 720, (ctx,w,h)=>{
+    ctx.fillStyle='#fbfdff';ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='#164f8f';ctx.fillRect(0,0,w,118);
+    ctx.fillStyle='#fff';ctx.font='800 44px Pretendard, sans-serif';ctx.fillText(schoolName.slice(0,14),58,76);
+    ctx.fillStyle='#d9e9fa';ctx.font='700 22px Pretendard, sans-serif';ctx.fillText('SCHOOL ID',850,74);
+    ctx.fillStyle='#dce8f5';roundedRect(ctx,58,172,260,280,24);ctx.fill();
+    ctx.fillStyle='#7f9dbf';ctx.beginPath();ctx.arc(188,265,66,0,Math.PI*2);ctx.fill();roundedRect(ctx,107,332,162,94,45);ctx.fill();
+    ctx.fillStyle='#183d69';ctx.font='800 52px Pretendard, sans-serif';ctx.fillText('학생',370,240);
+    ctx.font='700 36px Pretendard, sans-serif';ctx.fillText(`${grade}학년 ${klass}반`,370,300);
+    ctx.fillStyle='#7189a4';ctx.font='500 25px Pretendard, sans-serif';ctx.fillText('오늘과 내일을 연결하는 학교생활',370,355);
+    ctx.fillStyle='#cbd6e2';for(let i=0;i<18;i++)ctx.fillRect(370+i*25,480,12+(i%3)*5,92);
+    ctx.fillStyle='#2c6db9';ctx.font='700 24px Pretendard, sans-serif';ctx.fillText('LEARN · GROW · TOGETHER',58,650);
+  });
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(2.94,1.89),new THREE.MeshBasicMaterial({map:idTex}));card.position.z=.081;idGroup.add(card);
+  const clip = roundedMesh(THREE,RoundedBoxGeometry,[.72,.22,.22],.07,material(THREE,0x264d7d,.28,.48));clip.position.set(0,1.08,.09);idGroup.add(clip);
+  idGroup.position.set(1.2,.32,.18);idGroup.rotation.set(-.04,-.12,.045);root.add(idGroup);
 
-  const bookMat = new THREE.MeshStandardMaterial({ color: 0x173b68, roughness: .48 });
-  for (let i = 0; i < 3; i++) {
-    const book = new THREE.Mesh(new THREE.BoxGeometry(2.65, .38, 1.5), bookMat.clone());
-    book.material.color.offsetHSL(0, 0, i * .055);
-    book.position.set(1.7, -1.15 + i * .43, -.48 - i * .03);
-    book.rotation.y = -.13 + i * .035;
-    group.add(book);
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(.9,1.45,.18),new THREE.Vector3(2.5,2.1,-.05),new THREE.Vector3(3.5,1.25,-.2),new THREE.Vector3(3.1,-.5,-.1),new THREE.Vector3(2.2,-1.35,.12)
+  ]);
+  const strap = new THREE.Mesh(new THREE.TubeGeometry(curve,80,.075,14,false),material(THREE,0x123969,.52,.12));strap.castShadow=true;root.add(strap);
+}
+
+function createScene(THREE, RoundedBoxGeometry, canvas) {
+  const type = canvas.dataset.scene || 'home';
+  const renderer = new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});
+  const mobile = window.matchMedia('(max-width: 700px)').matches;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.55 : 2.15));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x000000,0);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(34,1,.1,100);
+  camera.position.set(0,.15,8.4);
+  const root = new THREE.Group(); scene.add(root);
+
+  scene.add(new THREE.HemisphereLight(0xf8fbff,0x8a7968,2.05));
+  const sun = new THREE.DirectionalLight(0xfff5df,4.6);sun.position.set(-4,6,7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-8;sun.shadow.camera.right=8;sun.shadow.camera.top=7;sun.shadow.camera.bottom=-7;sun.shadow.bias=-.0002;scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xa8cfff,2.0);fill.position.set(5,2,5);scene.add(fill);
+  const warm = new THREE.PointLight(0xffc994,7,15,2);warm.position.set(2,-1,4);scene.add(warm);
+
+  if(type==='home'||type==='onboarding') buildHomeScene(THREE,RoundedBoxGeometry,root,type==='onboarding');
+  if(type==='schedule') buildScheduleScene(THREE,RoundedBoxGeometry,root);
+  if(type==='changes') buildChangesScene(THREE,RoundedBoxGeometry,root);
+  if(type==='settings') buildSettingsScene(THREE,RoundedBoxGeometry,root);
+
+  const host = canvas.parentElement;
+  const pointer={x:0,y:0};
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(host){
+    host.addEventListener('pointermove',(e)=>{const r=host.getBoundingClientRect();if(!r.width||!r.height)return;pointer.x=((e.clientX-r.left)/r.width-.5)*2;pointer.y=((e.clientY-r.top)/r.height-.5)*2},{passive:true});
+    host.addEventListener('pointerleave',()=>{pointer.x=0;pointer.y=0},{passive:true});
   }
 
-  const cardTex = makeTextTexture(THREE, 760, 480, (ctx,w,h) => {
-    ctx.fillStyle = '#f7fafc'; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle = '#173b68'; ctx.fillRect(0,0,w,82);
-    ctx.fillStyle = '#fff'; ctx.font = '700 30px sans-serif'; ctx.fillText(schoolName.slice(0,16), 42, 54);
-    ctx.fillStyle = '#dfe9f4'; ctx.font = '500 17px sans-serif'; ctx.fillText('SCHOOL ID', w - 165, 52);
-    ctx.fillStyle = '#d9e4ef'; roundedRect(ctx, 45, 125, 155, 185, 16); ctx.fill();
-    ctx.fillStyle = '#6f8aad'; ctx.beginPath(); ctx.arc(122,185,45,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#7894b7'; roundedRect(ctx, 78, 230, 88, 58, 26); ctx.fill();
-    ctx.fillStyle = '#213b5c'; ctx.font = '700 34px sans-serif'; ctx.fillText('학생', 250, 160);
-    ctx.font = '600 26px sans-serif'; ctx.fillText(`${grade}학년 ${klass}반`, 250, 210);
-    ctx.fillStyle = '#71839a'; ctx.font = '500 20px sans-serif'; ctx.fillText('오늘과 내일을 연결하는 학교생활', 250, 264);
-    ctx.fillStyle = '#d3dae3';
-    for (let x = 250; x < 680; x += 13) ctx.fillRect(x, 345, 5 + (x % 17), 68);
-  });
-
-  const cardBase = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.15, .12), new THREE.MeshStandardMaterial({ color: 0xe9eef4, roughness: .42 }));
-  cardBase.position.set(-.65, .18, .15);
-  cardBase.rotation.set(-.12, -.18, .08);
-  cardBase.userData.floatBase = cardBase.position.y;
-  group.add(cardBase);
-  const card = new THREE.Mesh(new THREE.PlaneGeometry(3.22, 2.02), new THREE.MeshBasicMaterial({ map: cardTex }));
-  card.position.set(-.65, .18, .217);
-  card.rotation.copy(cardBase.rotation);
-  card.userData.floatBase = card.position.y;
-  group.add(card);
-
-  const clip = new THREE.Mesh(new THREE.BoxGeometry(.72, .24, .18), new THREE.MeshStandardMaterial({ color: 0x315b91, metalness: .45, roughness: .28 }));
-  clip.position.set(-.72, 1.34, .3);
-  clip.rotation.copy(cardBase.rotation);
-  group.add(clip);
-
-  const strapMat = new THREE.MeshStandardMaterial({ color: 0x24466f, roughness: .48 });
-  const strap1 = new THREE.Mesh(new THREE.TorusGeometry(1.95, .055, 12, 80, Math.PI * 1.25), strapMat);
-  strap1.rotation.set(1.25, 0, -.5);
-  strap1.position.set(-.95, .82, -.4);
-  group.add(strap1);
-
-  group.rotation.set(-.06, -.12, 0);
-  group.position.set(.35, .02, 0);
+  function resize(){const r=canvas.getBoundingClientRect();const w=Math.max(1,r.width),h=Math.max(1,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();camera.position.z=w<520?9.3:8.4;root.scale.setScalar(w<520?.88:1)}
+  const ro=new ResizeObserver(resize);ro.observe(canvas);resize();
+  let raf=0,sx=0,sy=0;
+  function frame(t){sx+=(pointer.x-sx)*.045;sy+=(pointer.y-sy)*.045;if(!reduced){root.rotation.y=sx*.025;root.rotation.x=-sy*.012;camera.position.x=sx*.08;camera.position.y=.15-sy*.045}else{root.rotation.set(0,0,0)}renderer.render(scene,camera);raf=requestAnimationFrame(frame)}
+  raf=requestAnimationFrame(frame);
+  window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);ro.disconnect();renderer.dispose()},{once:true});
 }
