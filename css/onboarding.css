@@ -1,0 +1,124 @@
+.onboarding-screen {
+  min-height: calc(100vh - 118px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0 70px;
+}
+
+.onboarding-screen[hidden] {
+  display: none;
+}
+
+.onboarding-copy {
+  width: min(700px, 100%);
+}
+
+.onboarding-copy h1 {
+  margin: 8px 0 16px;
+  font-size: clamp(34px, 5vw, 54px);
+  line-height: 1.08;
+  letter-spacing: -0.055em;
+}
+
+.onboarding-description {
+  max-width: 620px;
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.onboarding-points {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 34px 0 30px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.onboarding-points > div {
+  padding: 22px 20px 22px 0;
+}
+
+.onboarding-points > div + div {
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+}
+
+.onboarding-points strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ink-900);
+  font-size: 14px;
+}
+
+.onboarding-points span {
+  display: block;
+  color: var(--ink-500);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.primary-link-button {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border-radius: 8px;
+  background: var(--navy-900);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.primary-link-button:hover {
+  background: var(--navy-950);
+}
+
+.onboarding-footnote {
+  margin: 14px 0 0;
+  color: var(--ink-400);
+  font-size: 12px;
+}
+
+#dashboard_content[hidden] {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .onboarding-screen {
+    min-height: auto;
+    align-items: flex-start;
+    padding: 22px 0 90px;
+  }
+
+  .onboarding-copy h1 {
+    font-size: 34px;
+  }
+
+  .onboarding-description {
+    font-size: 14px;
+  }
+
+  .onboarding-points {
+    grid-template-columns: 1fr;
+    margin-top: 28px;
+  }
+
+  .onboarding-points > div {
+    padding: 18px 0;
+  }
+
+  .onboarding-points > div + div {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .primary-link-button {
+    width: 100%;
+  }
+}
