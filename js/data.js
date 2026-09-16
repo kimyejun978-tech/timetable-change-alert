@@ -10,6 +10,16 @@ const DAY_CONFIG = {
   5: { name: "금요일", key: "sfri", fields: ["fc1", "fc2", "fc3", "fc4", "fc5", "fc6", "fc7"] },
 };
 
+const EDITOR_TIMES = [
+  "08:50 - 09:40",
+  "09:50 - 10:40",
+  "10:50 - 11:40",
+  "11:50 - 12:40",
+  "13:30 - 14:20",
+  "14:30 - 15:20",
+  "15:30 - 16:20",
+];
+
 function readSavedDay(dayNumber) {
   const config = DAY_CONFIG[dayNumber];
   if (!config) return ["", "", "", "", "", "", ""];
@@ -41,7 +51,7 @@ function makeScheduleEditor(dayNumber) {
 
   const description = document.createElement("p");
   description.className = "form-description";
-  description.textContent = "과목명만 먼저 입력합니다. 수업 장소는 다음 단계에서 별도 설정 기능으로 연결합니다.";
+  description.textContent = "과목을 입력하면 홈 화면의 오늘 시간표와 다음 수업 정보에 반영됩니다.";
 
   const list = document.createElement("div");
   list.className = "schedule-input-list";
@@ -50,18 +60,29 @@ function makeScheduleEditor(dayNumber) {
     const row = document.createElement("div");
     row.className = "schedule-input-row";
 
-    const label = document.createElement("label");
-    label.setAttribute("for", "c" + (i + 1));
-    label.textContent = i + 1 + "교시";
+    const periodStack = document.createElement("div");
+    periodStack.className = "schedule-period-stack";
+
+    const period = document.createElement("span");
+    period.className = "period-number";
+    period.textContent = i + 1 + "교시";
+
+    const time = document.createElement("span");
+    time.className = "period-time";
+    time.textContent = EDITOR_TIMES[i];
+
+    periodStack.appendChild(period);
+    periodStack.appendChild(time);
 
     const input = document.createElement("input");
     input.type = "text";
     input.id = "c" + (i + 1);
+    input.setAttribute("aria-label", i + 1 + "교시 과목");
     input.placeholder = "과목명 입력";
     input.value = savedValues[i];
     input.autocomplete = "off";
 
-    row.appendChild(label);
+    row.appendChild(periodStack);
     row.appendChild(input);
     list.appendChild(row);
   }
@@ -72,7 +93,7 @@ function makeScheduleEditor(dayNumber) {
   const saveButton = document.createElement("button");
   saveButton.type = "button";
   saveButton.className = "store_slt";
-  saveButton.textContent = "시간표 저장";
+  saveButton.textContent = config.name + " 시간표 저장";
   actions.appendChild(saveButton);
 
   scheduleArea.appendChild(title);
